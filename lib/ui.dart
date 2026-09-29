@@ -86,12 +86,14 @@ class _HomeScreenState extends State<HomeScreen> {
     load();
   }
 
+  Future<({int due, StatsSnapshot stats, List<TopicSummary> topics})> _loadData() async => (
+        due: await AppDatabase.instance.dueCount(),
+        stats: await AppDatabase.instance.stats(),
+        topics: await AppDatabase.instance.topicSummaries(),
+      );
+
   void load() {
-    future = () async => (
-          due: await AppDatabase.instance.dueCount(),
-          stats: await AppDatabase.instance.stats(),
-          topics: await AppDatabase.instance.topicSummaries(),
-        )();
+    future = _loadData();
   }
 
   String greeting() {
@@ -411,9 +413,9 @@ class _QuizScreenState extends State<QuizScreen> {
     started = DateTime.now();
     selected = null;
     answered = false;
-    bookmarked = await AppDatabase.instance.isBookmarked(question.id);
     options = question.options.entries.toList();
     if (widget.prefs.getBool('shuffle_options') ?? false) options.shuffle();
+    bookmarked = await AppDatabase.instance.isBookmarked(question.id);
     if (mounted) setState(() {});
   }
 
@@ -899,19 +901,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> importFiles() async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      withData: true,
+    final files = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['json'],
     );
-    if (result == null || !mounted) return;
+    if (files.isEmpty || !mounted) return;
     int inserted = 0;
     int skipped = 0;
     try {
-      for (final file in result.files) {
-        final bytes = file.bytes ?? (file.path == null ? null : await File(file.path!).readAsBytes());
-        if (bytes == null) continue;
+      for (final file in files) {
+        final bytes = await file.readAsBytes();
         final outcome = await AppDatabase.instance.importJsonText(utf8.decode(bytes));
         inserted += outcome.inserted;
         skipped += outcome.skipped;
@@ -1231,7 +1230,7 @@ class Heatmap extends StatelessWidget {
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 12, crossAxisSpacing: 4, mainAxisSpacing: 4),
           itemBuilder: (context, i) {
             final count = activity[days[i]] ?? 0;
-            final opacity = count == 0 ? .08 : .22 + (count.clamp(1, 8) / 8) * .78;
+            final opacity = count == 0 ? .08 : .22 + (count.clamp(1, 8).toDouble() / 8) * .78;
             return Tooltip(
               message: DateFormat.MMMd().format(days[i]) + ': ' + count.toString() + ' reviews',
               child: DecoratedBox(
