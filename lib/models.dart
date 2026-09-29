@@ -1,3 +1,5 @@
+import 'package:krutidevtounicode/krutidevtounicode.dart';
+
 enum PracticeMode {
   dailyReview,
   topicPractice,
@@ -32,26 +34,51 @@ class Question {
   final String source;
   final String? image;
 
+  static String _decodeSegments(dynamic raw, dynamic segments) {
+    if (segments is! List) return raw?.toString().trim() ?? '';
+    final buffer = StringBuffer();
+    for (final item in segments) {
+      if (item is! Map) continue;
+      final part = Map<String, dynamic>.from(item);
+      final text = part['text']?.toString() ?? '';
+      buffer.write(
+        part['legacy'] == true
+            ? KrutidevToUnicode.convertToUnicode(text)
+            : text,
+      );
+    }
+    return buffer.toString().replaceAll(RegExp(r'\\s+'), ' ').trim();
+  }
+
   factory Question.fromJson(Map<String, dynamic> json) {
     final rawOptions = Map<String, dynamic>.from(json['options'] as Map);
+    final legacy = json['legacy_segments'] is Map
+        ? Map<String, dynamic>.from(json['legacy_segments'] as Map)
+        : const <String, dynamic>{};
+    final legacyOptions = legacy['options'] is Map
+        ? Map<String, dynamic>.from(legacy['options'] as Map)
+        : const <String, dynamic>{};
+
     final options = <String, String>{};
     for (final key in const ['A', 'B', 'C', 'D']) {
       final value = rawOptions[key];
       if (value == null) {
         throw FormatException('Question ${json['id']} is missing option $key');
       }
-      options[key] = value.toString().trim();
+      options[key] = _decodeSegments(value, legacyOptions[key]);
     }
+
     final answer = json['answer'].toString().toUpperCase().trim();
     if (!options.containsKey(answer)) {
       throw FormatException('Question ${json['id']} has invalid answer: $answer');
     }
+
     return Question(
       id: int.parse(json['id'].toString()),
       topic: json['topic']?.toString().trim().isNotEmpty == true
           ? json['topic'].toString().trim()
           : 'General',
-      question: json['question'].toString().trim(),
+      question: _decodeSegments(json['question'], legacy['question']),
       options: options,
       answer: answer,
       explanation: json['explanation']?.toString().trim() ?? '',
