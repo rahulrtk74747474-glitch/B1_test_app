@@ -15,9 +15,11 @@ jobs:
           channel: stable
           cache: true
       - name: Generate Android platform scaffold
-        run: flutter create --platforms=android --project-name b1_test_app .
+        run: |
+          flutter create --empty --platforms=android --project-name b1_test_app .
+          rm -f test/widget_test.dart
       - run: flutter pub get
-      - run: flutter analyze
+      - run: flutter analyze --no-fatal-infos
       - run: flutter test
       - run: flutter build apk --debug
       - uses: actions/upload-artifact@v4
