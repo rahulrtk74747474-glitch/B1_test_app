@@ -1,0 +1,102 @@
+[
+  {
+    "id": 47,
+    "topic": "BNS",
+    "question": "A six-year-old child fires a revolver at a person, but the bullet does not hit. According to the source question, what is the legal position under BNS 2023?",
+    "options": {"A":"Section 109","B":"Section 105","C":"No offence under Section 20","D":"No offence under Section 21"},
+    "answer": "C",
+    "explanation": "The PDF answer key marks option C for question 47.",
+    "difficulty": "medium",
+    "source": "1-6500.pdf, page 4, question 47"
+  },
+  {
+    "id": 48,
+    "topic": "BNS",
+    "question": "Rajesh kills his wife and cuts and burns the body to dispose of it. Which combination of BNS 2023 sections is marked correct in the source?",
+    "options": {"A":"Sections 103(1) and 248","B":"Sections 103(1) and 249","C":"Sections 103(1) and 238","D":"Sections 103(1) and 239"},
+    "answer": "C",
+    "explanation": "The PDF answer key marks option C for question 48.",
+    "difficulty": "medium",
+    "source": "1-6500.pdf, page 4, question 48"
+  },
+  {
+    "id": 49,
+    "topic": "BNS",
+    "question": "A police officer arrests a person and keeps that person in custody for 30 hours. Which BNS 2023 section is marked in the source?",
+    "options": {"A":"Section 125","B":"Section 127","C":"Section 126","D":"Section 124"},
+    "answer": "B",
+    "explanation": "The PDF answer key marks option B for question 49.",
+    "difficulty": "medium",
+    "source": "1-6500.pdf, page 4, question 49"
+  },
+  {
+    "id": 51,
+    "topic": "BNS",
+    "question": "Constable Ram Singh negligently allows an offender to escape from his custody. Which BNS 2023 section is marked correct in the source?",
+    "options": {"A":"Section 258","B":"Section 259","C":"Section 260","D":"Section 261"},
+    "answer": "D",
+    "explanation": "The PDF answer key marks option D for question 51.",
+    "difficulty": "medium",
+    "source": "1-6500.pdf, page 4, question 51"
+  },
+  {
+    "id": 53,
+    "topic": "BNS",
+    "question": "Ram puts his hand into Karim's shirt pocket intending to steal a purse, but the pocket is empty. Which BNS provision is marked correct in the source?",
+    "options": {"A":"Section 303(1) read with 62","B":"Section 303(2) read with 62","C":"Section 305 read with 62","D":"No offence"},
+    "answer": "B",
+    "explanation": "The PDF answer key marks option B for question 53.",
+    "difficulty": "hard",
+    "source": "1-6500.pdf, page 4, question 53"
+  },
+  {
+    "id": 54,
+    "topic": "BNS",
+    "question": "A husband subjects his wife to dowry-related cruelty and she dies by suicide. Which BNS 2023 section is marked correct in the source?",
+    "options": {"A":"Section 103(1)","B":"Section 106","C":"Section 80","D":"No offence"},
+    "answer": "C",
+    "explanation": "The PDF answer key marks option C for question 54.",
+    "difficulty": "medium",
+    "source": "1-6500.pdf, page 4, question 54"
+  },
+  {
+    "id": 55,
+    "topic": "BNS",
+    "question": "A police officer commits rape on a woman brought to a police station. Which BNS 2023 section is marked correct in the source?",
+    "options": {"A":"Section 63","B":"Section 68","C":"Section 66","D":"None of these"},
+    "answer": "B",
+    "explanation": "The PDF answer key marks option B for question 55.",
+    "difficulty": "medium",
+    "source": "1-6500.pdf, page 4, question 55"
+  },
+  {
+    "id": 56,
+    "topic": "BNS",
+    "question": "In which provision does the source place the definition of movable property under BNS 2023?",
+    "options": {"A":"Section 2(5)","B":"Section 2(16)","C":"Section 2(21)","D":"Section 2(28)"},
+    "answer": "C",
+    "explanation": "The PDF answer key marks option C for question 56.",
+    "difficulty": "easy",
+    "source": "1-6500.pdf, page 4, question 56"
+  },
+  {
+    "id": 100,
+    "topic": "BNS",
+    "question": "Krishna harasses his wife for dowry. Which BNS 2023 section is marked correct in the source?",
+    "options": {"A":"Section 346","B":"Section 84","C":"Section 85","D":"None of these"},
+    "answer": "C",
+    "explanation": "The PDF answer key marks option C for question 100.",
+    "difficulty": "easy",
+    "source": "1-6500.pdf, page 6, question 100"
+  },
+  {
+    "id": 101,
+    "topic": "BNS",
+    "question": "Ram whistles and makes gestures at a girl walking on the road. Which BNS 2023 section is marked correct in the source?",
+    "options": {"A":"Section 64","B":"Section 74","C":"Section 79","D":"Section 351"},
+    "answer": "C",
+    "explanation": "The PDF answer key marks option C for question 101.",
+    "difficulty": "easy",
+    "source": "1-6500.pdf, page 6, question 101"
+  }
+]
