@@ -133,7 +133,7 @@ class TopicSummary {
   final int attempted;
   final int correct;
 
-  double get mastery => attempted == 0 ? 0 : (correct / attempted * 100).clamp(0, 100);
+  double get mastery => attempted == 0 ? 0 : (correct / attempted * 100).clamp(0, 100).toDouble();
 }
 
 class StatsSnapshot {
@@ -156,5 +156,5 @@ class StatsSnapshot {
   final List<TopicSummary> topics;
 
   double get accuracy => totalReviews == 0 ? 0 : correctReviews / totalReviews * 100;
-  double get predictedScore => accuracy.clamp(0, 100);
+  double get predictedScore => accuracy.clamp(0, 100).toDouble();
 }
