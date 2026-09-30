@@ -41,6 +41,7 @@ class _AppShellState extends State<AppShell> {
     final pages = [
       HomeScreen(key: ValueKey('home-$revision'), prefs: widget.prefs),
       PracticeScreen(key: ValueKey('practice-$revision'), prefs: widget.prefs),
+      RevisionScreen(key: ValueKey('revision-$revision'), prefs: widget.prefs),
       StatsScreen(key: ValueKey('stats-$revision')),
       LibraryScreen(key: ValueKey('library-$revision')),
       SettingsScreen(
@@ -60,6 +61,7 @@ class _AppShellState extends State<AppShell> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.bolt_outlined), selectedIcon: Icon(Icons.bolt), label: 'Practice'),
+          NavigationDestination(icon: Icon(Icons.replay_circle_filled_outlined), selectedIcon: Icon(Icons.replay_circle_filled), label: 'Revision'),
           NavigationDestination(icon: Icon(Icons.query_stats_outlined), selectedIcon: Icon(Icons.query_stats), label: 'Stats'),
           NavigationDestination(icon: Icon(Icons.library_books_outlined), selectedIcon: Icon(Icons.library_books), label: 'Library'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
@@ -352,6 +354,165 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 }
 
+
+class RevisionScreen extends StatefulWidget {
+  const RevisionScreen({super.key, required this.prefs});
+  final SharedPreferences prefs;
+
+  @override
+  State<RevisionScreen> createState() => _RevisionScreenState();
+}
+
+class _RevisionScreenState extends State<RevisionScreen> {
+  late Future<Map<String, int>> future;
+
+  @override
+  void initState() {
+    super.initState();
+    future = AppDatabase.instance.revisionCounts();
+  }
+
+  Future<void> refresh() async {
+    setState(() => future = AppDatabase.instance.revisionCounts());
+    await future;
+  }
+
+  Future<void> start(String bucket) async {
+    final questions = await AppDatabase.instance.revisionQuestions(bucket, limit: 200);
+    if (!mounted) return;
+    if (questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No questions are in this revision list yet.')),
+      );
+      return;
+    }
+    final mode = switch (bucket) {
+      'again' => PracticeMode.revisionAgain,
+      'hard' => PracticeMode.revisionHard,
+      'good' => PracticeMode.revisionGood,
+      _ => PracticeMode.revisionAll,
+    };
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => QuizScreen(
+          questions: questions,
+          mode: mode,
+          prefs: widget.prefs,
+        ),
+      ),
+    );
+    if (mounted) await refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, int>>(
+      future: future,
+      builder: (context, snapshot) {
+        final counts = snapshot.data ?? const {'again': 0, 'hard': 0, 'good': 0};
+        final total = (counts['again'] ?? 0) + (counts['hard'] ?? 0) + (counts['good'] ?? 0);
+        return RefreshIndicator(
+          onRefresh: refresh,
+          child: ListView(
+            padding: const EdgeInsets.all(18),
+            children: [
+              Text('Revision', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 6),
+              const Text('Questions stay here until you finally mark them Easy.'),
+              const SizedBox(height: 16),
+              Card(
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  leading: const CircleAvatar(child: Icon(Icons.all_inclusive)),
+                  title: const Text('All revision questions', style: TextStyle(fontWeight: FontWeight.w900)),
+                  subtitle: const Text('Again + Hard + Good'),
+                  trailing: Text('$total', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                  onTap: () => start('all'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              RevisionBucketCard(
+                title: 'Again',
+                subtitle: 'Repeats after every 10 other answered questions',
+                count: counts['again'] ?? 0,
+                color: red,
+                icon: Icons.replay,
+                onTap: () => start('again'),
+              ),
+              RevisionBucketCard(
+                title: 'Hard',
+                subtitle: 'Repeats after every 30 other answered questions',
+                count: counts['hard'] ?? 0,
+                color: amber,
+                icon: Icons.psychology_alt_outlined,
+                onTap: () => start('hard'),
+              ),
+              RevisionBucketCard(
+                title: 'Good',
+                subtitle: 'Repeats after every 70 other answered questions',
+                count: counts['good'] ?? 0,
+                color: green,
+                icon: Icons.thumb_up_alt_outlined,
+                onTap: () => start('good'),
+              ),
+              const SizedBox(height: 8),
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Easy = mastered for this revision cycle. Marking a question Again, Hard, or Good later moves it back into the matching list.',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class RevisionBucketCard extends StatelessWidget {
+  const RevisionBucketCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.count,
+    required this.color,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final int count;
+  final Color color;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Card(
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          leading: CircleAvatar(
+            backgroundColor: color.withValues(alpha: .12),
+            foregroundColor: color,
+            child: Icon(icon),
+          ),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+          subtitle: Text(subtitle),
+          trailing: Text('$count', style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.w900)),
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
+}
+
 class QuizScreen extends StatefulWidget {
   const QuizScreen({
     super.key,
@@ -378,18 +539,26 @@ class _QuizScreenState extends State<QuizScreen> {
   int correctAnswers = 0;
   int wrongAnswers = 0;
   late DateTime started;
+  late List<Question> queue;
   late List<MapEntry<String, String>> options;
+  late QuestionLanguage language;
   Timer? timer;
   int? secondsLeft;
 
-  Question get question => widget.questions[index];
+  Question get question => queue[index];
   bool get isMock => widget.mode == PracticeMode.mockExam;
 
   @override
   void initState() {
     super.initState();
+    queue = [...widget.questions];
+    language = switch (widget.prefs.getString('question_language')) {
+      'english' => QuestionLanguage.english,
+      'both' => QuestionLanguage.both,
+      _ => QuestionLanguage.hindi,
+    };
     if (isMock) {
-      secondsLeft = widget.questions.length * 60;
+      secondsLeft = queue.length * 60;
       timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) return;
         if (secondsLeft! <= 1) {
@@ -419,6 +588,62 @@ class _QuizScreenState extends State<QuizScreen> {
     if (mounted) setState(() {});
   }
 
+
+  String questionText() {
+    final hi = question.question;
+    final en = question.questionEnglish;
+    return switch (language) {
+      QuestionLanguage.hindi => hi,
+      QuestionLanguage.english => en.isEmpty ? hi : en,
+      QuestionLanguage.both => en.isEmpty ? hi : '$hi\n\n$en',
+    };
+  }
+
+  String optionText(String key) {
+    final hi = question.options[key] ?? '';
+    final en = question.optionsEnglish[key] ?? '';
+    return switch (language) {
+      QuestionLanguage.hindi => hi,
+      QuestionLanguage.english => en.isEmpty ? hi : en,
+      QuestionLanguage.both => en.isEmpty ? hi : '$hi\n$en',
+    };
+  }
+
+  String explanationText() {
+    final hi = question.explanation;
+    final en = question.explanationEnglish;
+    final fallback = 'Correct answer: ' + question.answer;
+    return switch (language) {
+      QuestionLanguage.hindi => hi.isEmpty ? fallback : hi,
+      QuestionLanguage.english => en.isEmpty ? (hi.isEmpty ? fallback : hi) : en,
+      QuestionLanguage.both => [
+          if (hi.isNotEmpty) hi,
+          if (en.isNotEmpty) en,
+          if (hi.isEmpty && en.isEmpty) fallback,
+        ].join('\n\n'),
+    };
+  }
+
+  Future<void> setLanguage(QuestionLanguage value) async {
+    setState(() => language = value);
+    await widget.prefs.setString('question_language', value.name);
+  }
+
+  void scheduleInCurrentSession(Question item, ReviewRating rating) {
+    if (isMock) return;
+    final gap = switch (rating) {
+      ReviewRating.again => 10,
+      ReviewRating.hard => 30,
+      ReviewRating.good => 70,
+      ReviewRating.easy => 0,
+    };
+    if (gap == 0) return;
+    final targetIndex = index + gap + 1;
+    if (targetIndex <= queue.length) {
+      queue.insert(targetIndex, item);
+    }
+  }
+
   void choose(String key) {
     if (answered) return;
     final correct = key == question.answer;
@@ -435,16 +660,18 @@ class _QuizScreenState extends State<QuizScreen> {
 
   Future<void> record(ReviewRating rating) async {
     if (!answered || selected == null) return;
+    final answeredQuestion = question;
     await AppDatabase.instance.recordAnswer(
-      question: question,
+      question: answeredQuestion,
       selectedAnswer: selected!,
       correct: selected == question.answer,
       rating: rating,
       timeMs: DateTime.now().difference(started).inMilliseconds,
       mode: widget.mode,
     );
+    scheduleInCurrentSession(answeredQuestion, rating);
     if (!mounted) return;
-    if (index == widget.questions.length - 1) {
+    if (index == queue.length - 1) {
       await finish();
     } else {
       setState(() => index++);
@@ -503,7 +730,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = (index + 1) / widget.questions.length;
+    final progress = (index + 1) / queue.length;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
@@ -511,7 +738,7 @@ class _QuizScreenState extends State<QuizScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 14),
-            child: Center(child: Text((index + 1).toString() + '/' + widget.questions.length.toString(), style: const TextStyle(fontWeight: FontWeight.w900))),
+            child: Center(child: Text((index + 1).toString() + '/' + queue.length.toString(), style: const TextStyle(fontWeight: FontWeight.w900))),
           ),
         ],
       ),
@@ -525,6 +752,19 @@ class _QuizScreenState extends State<QuizScreen> {
               Pill(icon: Icons.sell_outlined, text: question.topic),
               if (isMock && secondsLeft != null) Pill(icon: Icons.timer_outlined, text: formatSeconds(secondsLeft!), color: amber),
             ],
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<QuestionLanguage>(
+              segments: const [
+                ButtonSegment(value: QuestionLanguage.hindi, label: Text('हिंदी')),
+                ButtonSegment(value: QuestionLanguage.english, label: Text('English')),
+                ButtonSegment(value: QuestionLanguage.both, label: Text('Both')),
+              ],
+              selected: {language},
+              onSelectionChanged: (value) => setLanguage(value.first),
+            ),
           ),
           const SizedBox(height: 14),
           Card(
@@ -549,7 +789,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   ),
                   Text('Question #' + question.id.toString(), style: Theme.of(context).textTheme.labelMedium),
                   const SizedBox(height: 10),
-                  Text(question.question, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, height: 1.4)),
+                  Text(questionText(), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, height: 1.5)),
                   if (question.image != null) ...[
                     const SizedBox(height: 14),
                     QuestionImage(path: question.image!),
@@ -566,7 +806,7 @@ class _QuizScreenState extends State<QuizScreen> {
           for (final option in options) ...[
             OptionButton(
               keyText: option.key,
-              text: option.value,
+              text: optionText(option.key),
               color: feedbackColor(option.key),
               onTap: () => choose(option.key),
             ),
@@ -588,7 +828,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    Text(question.explanation.isEmpty ? 'Correct answer: ' + question.answer : question.explanation),
+                    Text(explanationText()),
                   ],
                 ),
               ),
@@ -807,7 +1047,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   return Card(
                     child: ListTile(
                       title: Text('#' + q.id.toString() + ' • ' + q.topic, style: const TextStyle(fontWeight: FontWeight.w900)),
-                      subtitle: Text(q.question, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(
+                        q.questionEnglish.isEmpty ? q.question : q.question + '\n' + q.questionEnglish,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => QuestionDetailScreen(question: q))),
                     ),
@@ -835,13 +1079,20 @@ class QuestionDetailScreen extends StatelessWidget {
         children: [
           Pill(icon: Icons.sell_outlined, text: question.topic),
           const SizedBox(height: 12),
-          Text(question.question, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, height: 1.4)),
+          Text(question.question, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, height: 1.5)),
+          if (question.questionEnglish.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(question.questionEnglish, style: Theme.of(context).textTheme.bodyLarge),
+          ],
           const SizedBox(height: 18),
           for (final option in question.options.entries)
             Card(
               child: ListTile(
                 leading: CircleAvatar(child: Text(option.key)),
                 title: Text(option.value),
+                subtitle: (question.optionsEnglish[option.key] ?? '').isEmpty
+                    ? null
+                    : Text(question.optionsEnglish[option.key]!),
                 trailing: option.key == question.answer ? const Icon(Icons.check_circle, color: green) : null,
               ),
             ),
@@ -891,6 +1142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool reminder;
   late bool shuffle;
   late double newLimit;
+  late QuestionLanguage questionLanguage;
 
   @override
   void initState() {
@@ -898,6 +1150,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     reminder = widget.prefs.getBool('daily_reminder') ?? true;
     shuffle = widget.prefs.getBool('shuffle_options') ?? false;
     newLimit = (widget.prefs.getInt('daily_new_limit') ?? 30).toDouble();
+    questionLanguage = switch (widget.prefs.getString('question_language')) {
+      'english' => QuestionLanguage.english,
+      'both' => QuestionLanguage.both,
+      _ => QuestionLanguage.hindi,
+    };
   }
 
   Future<void> importFiles() async {
@@ -992,6 +1249,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Card(
           child: Column(
             children: [
+              ListTile(
+                title: const Text('Question language'),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: SegmentedButton<QuestionLanguage>(
+                    segments: const [
+                      ButtonSegment(value: QuestionLanguage.hindi, label: Text('हिंदी')),
+                      ButtonSegment(value: QuestionLanguage.english, label: Text('English')),
+                      ButtonSegment(value: QuestionLanguage.both, label: Text('Both')),
+                    ],
+                    selected: {questionLanguage},
+                    onSelectionChanged: (value) async {
+                      setState(() => questionLanguage = value.first);
+                      await widget.prefs.setString('question_language', value.first.name);
+                    },
+                  ),
+                ),
+              ),
               SwitchListTile(
                 title: const Text('Shuffle option order'),
                 subtitle: const Text('Original question number stays visible'),
