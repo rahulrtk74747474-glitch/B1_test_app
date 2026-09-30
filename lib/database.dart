@@ -208,6 +208,24 @@ class AppDatabase {
     return result;
   }
 
+  Future<List<Question>> dueRevisionQuestions({int limit = 5}) async {
+    final db = await database;
+    final reviewCount = await totalReviewCount();
+    final rows = await db.rawQuery('''
+      SELECT q.* FROM questions q
+      JOIN progress p ON p.question_id = q.id
+      WHERE p.last_rating IN ('again','hard','good')
+        AND p.next_repeat_review > 0
+        AND p.next_repeat_review <= ?
+      ORDER BY
+        p.next_repeat_review ASC,
+        CASE p.last_rating WHEN 'again' THEN 1 WHEN 'hard' THEN 2 ELSE 3 END,
+        p.last_answered ASC
+      LIMIT ?
+    ''', [reviewCount, limit]);
+    return rows.map(Question.fromDb).toList();
+  }
+
   Future<List<Question>> revisionQuestions(String rating, {int limit = 200}) async {
     final db = await database;
     final clause = rating == 'all'
