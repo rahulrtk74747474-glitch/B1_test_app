@@ -425,10 +425,65 @@ class _PracticeScreenState extends State<PracticeScreen> {
                   divisions: 10,
                   onChanged: (value) => setState(() => sessionSize = value),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  'Topic',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: topic,
-                  decoration: const InputDecoration(labelText: 'Topic'),
-                  items: topics.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                  isExpanded: true,
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                  borderRadius: BorderRadius.circular(16),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.menu_book_outlined),
+                    filled: true,
+                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                  selectedItemBuilder: (context) => topics
+                      .map(
+                        (value) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            value,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  items: topics
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text(value),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) => setState(() => topic = value),
                 ),
                 SwitchListTile(
