@@ -7,6 +7,10 @@ enum PracticeMode {
   bookmarked,
   mockExam,
   random50,
+  revisionAll,
+  revisionAgain,
+  revisionHard,
+  revisionGood,
 }
 
 enum ReviewRating { again, hard, good, easy }
