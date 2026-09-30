@@ -21,7 +21,7 @@ class AppDatabase {
     final path = p.join(await getDatabasesPath(), 'b1_daily_drill.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -35,6 +35,12 @@ class AppDatabase {
             option_d TEXT NOT NULL,
             answer TEXT NOT NULL CHECK(answer IN ('A','B','C','D')),
             explanation TEXT NOT NULL DEFAULT '',
+            question_en TEXT NOT NULL DEFAULT '',
+            option_a_en TEXT NOT NULL DEFAULT '',
+            option_b_en TEXT NOT NULL DEFAULT '',
+            option_c_en TEXT NOT NULL DEFAULT '',
+            option_d_en TEXT NOT NULL DEFAULT '',
+            explanation_en TEXT NOT NULL DEFAULT '',
             difficulty TEXT NOT NULL DEFAULT 'medium',
             source TEXT NOT NULL DEFAULT '',
             image_path TEXT,
@@ -76,15 +82,53 @@ class AppDatabase {
         ''');
         await db.execute('CREATE INDEX idx_reviews_answered ON reviews(answered_at)');
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute("ALTER TABLE questions ADD COLUMN question_en TEXT NOT NULL DEFAULT ''");
+          await db.execute("ALTER TABLE questions ADD COLUMN option_a_en TEXT NOT NULL DEFAULT ''");
+          await db.execute("ALTER TABLE questions ADD COLUMN option_b_en TEXT NOT NULL DEFAULT ''");
+          await db.execute("ALTER TABLE questions ADD COLUMN option_c_en TEXT NOT NULL DEFAULT ''");
+          await db.execute("ALTER TABLE questions ADD COLUMN option_d_en TEXT NOT NULL DEFAULT ''");
+          await db.execute("ALTER TABLE questions ADD COLUMN explanation_en TEXT NOT NULL DEFAULT ''");
+        }
+      },
     );
   }
 
   Future<void> seedSampleIfEmpty() async {
     final db = await database;
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM questions')) ?? 0;
-    if (count != 0) return;
     final text = await rootBundle.loadString('assets/sample_bns_10.json');
-    await importJsonText(text);
+    final decoded = jsonDecode(text) as List<dynamic>;
+    final questions = decoded
+        .map((item) => Question.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
+
+    await db.transaction((txn) async {
+      for (final question in questions) {
+        final existing = await txn.query(
+          'questions',
+          columns: ['id'],
+          where: 'id = ?',
+          whereArgs: [question.id],
+          limit: 1,
+        );
+        final values = {
+          ...question.toDb(),
+          'imported_at': DateTime.now().millisecondsSinceEpoch,
+        };
+        if (existing.isEmpty) {
+          await txn.insert('questions', values);
+        } else {
+          values.remove('id');
+          await txn.update(
+            'questions',
+            values,
+            where: 'id = ?',
+            whereArgs: [question.id],
+          );
+        }
+      }
+    });
   }
 
   Future<({int inserted, int skipped})> importJsonText(String text) async {
@@ -340,8 +384,8 @@ class AppDatabase {
         args.add(q);
         args.add('%$q%');
       } else {
-        where.add('(q.question LIKE ? OR q.topic LIKE ? OR q.source LIKE ?)');
-        args.addAll(['%$q%', '%$q%', '%$q%']);
+        where.add('(q.question LIKE ? OR q.question_en LIKE ? OR q.topic LIKE ? OR q.source LIKE ?)');
+        args.addAll(['%$q%', '%$q%', '%$q%', '%$q%']);
       }
     }
     switch (filter) {
