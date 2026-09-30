@@ -42,10 +42,9 @@ class _AppShellState extends State<AppShell> {
       HomeScreen(key: ValueKey('home-$revision'), prefs: widget.prefs),
       PracticeScreen(key: ValueKey('practice-$revision'), prefs: widget.prefs),
       RevisionScreen(key: ValueKey('revision-$revision'), prefs: widget.prefs),
-      StatsScreen(key: ValueKey('stats-$revision')),
       LibraryScreen(key: ValueKey('library-$revision')),
-      SettingsScreen(
-        key: ValueKey('settings-$revision'),
+      MoreScreen(
+        key: ValueKey('more-$revision'),
         prefs: widget.prefs,
         themeMode: widget.themeMode,
         onThemeChanged: widget.onThemeChanged,
@@ -57,16 +56,113 @@ class _AppShellState extends State<AppShell> {
       body: SafeArea(child: IndexedStack(index: index, children: pages)),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         onDestinationSelected: (value) => setState(() => index = value),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.bolt_outlined), selectedIcon: Icon(Icons.bolt), label: 'Practice'),
-          NavigationDestination(icon: Icon(Icons.replay_circle_filled_outlined), selectedIcon: Icon(Icons.replay_circle_filled), label: 'Revision'),
-          NavigationDestination(icon: Icon(Icons.query_stats_outlined), selectedIcon: Icon(Icons.query_stats), label: 'Stats'),
+          NavigationDestination(icon: Icon(Icons.replay_outlined), selectedIcon: Icon(Icons.replay_circle_filled), label: 'Review'),
           NavigationDestination(icon: Icon(Icons.library_books_outlined), selectedIcon: Icon(Icons.library_books), label: 'Library'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
+          NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view_rounded), label: 'More'),
         ],
       ),
+    );
+  }
+}
+
+
+class MoreScreen extends StatelessWidget {
+  const MoreScreen({
+    super.key,
+    required this.prefs,
+    required this.themeMode,
+    required this.onThemeChanged,
+    required this.onDataChanged,
+  });
+
+  final SharedPreferences prefs;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeChanged;
+  final VoidCallback onDataChanged;
+
+  Future<void> _open(BuildContext context, String title, Widget child) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: Text(title)),
+          body: SafeArea(child: child),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+      children: [
+        Text(
+          'More',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Statistics, settings and app tools.',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 24),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.query_stats_outlined)),
+                title: const Text('Statistics', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Accuracy, retention, streaks and achievements'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _open(context, 'Statistics', const StatsScreen()),
+              ),
+              const Divider(height: 1, indent: 72),
+              ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.settings_outlined)),
+                title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Language, appearance, reminders and data'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _open(
+                  context,
+                  'Settings',
+                  SettingsScreen(
+                    prefs: prefs,
+                    themeMode: themeMode,
+                    onThemeChanged: onThemeChanged,
+                    onDataChanged: onDataChanged,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.offline_bolt_outlined, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Text(
+                    'The question bank and your progress work offline. Review ratings and language preferences are saved on this device.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -139,31 +235,29 @@ class _HomeScreenState extends State<HomeScreen> {
         return RefreshIndicator(
           onRefresh: () async => setState(load),
           child: ListView(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(greeting()),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Ready to drill?',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
-                        ),
-                      ],
+              Text(
+                greeting(),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                  ),
-                  Pill(
-                    icon: Icons.local_fire_department,
-                    text: data.stats.currentStreak.toString() + ' day streak',
-                    color: amber,
-                  ),
-                ],
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 4),
+              Text(
+                'Ready to drill?',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Pill(
+                  icon: Icons.local_fire_department,
+                  text: data.stats.currentStreak.toString() + ' day streak',
+                  color: amber,
+                ),
+              ),
+              const SizedBox(height: 24),
               Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
@@ -177,9 +271,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('DUE TODAY', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w900, letterSpacing: 1.4)),
+                    const Text('DUE TODAY', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
                     const SizedBox(height: 8),
-                    Text(data.due.toString(), style: const TextStyle(color: Colors.white, fontSize: 46, fontWeight: FontWeight.w900)),
+                    Text(data.due.toString(), style: const TextStyle(color: Colors.white, fontSize: 46, fontWeight: FontWeight.w800)),
                     const Text('due reviews; new cards are added by your daily limit', style: TextStyle(color: Colors.white70)),
                     const SizedBox(height: 18),
                     FilledButton.icon(
@@ -192,53 +286,59 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text('Topics', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+              Text('Topics', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 12),
               if (data.topics.isEmpty)
                 const Text('Import a question bank to see topics here.')
               else
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: data.topics.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.18,
-                  ),
-                  itemBuilder: (context, i) {
-                    final topic = data.topics[i];
-                    final color = topic.mastery >= 50 ? green : amber;
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(15),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor: color.withValues(alpha: .12),
-                                  foregroundColor: color,
-                                  child: const Icon(Icons.gavel),
+                for (final topic in data.topics) ...[
+                  Builder(
+                    builder: (context) {
+                      final color = topic.mastery >= 50 ? green : amber;
+                      return Card(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: color.withValues(alpha: .12),
+                                foregroundColor: color,
+                                child: const Icon(Icons.gavel),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(topic.topic, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                    const SizedBox(height: 8),
+                                    LinearProgressIndicator(
+                                      value: topic.mastery / 100,
+                                      minHeight: 7,
+                                      color: color,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      topic.total.toString() + ' questions',
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ],
                                 ),
-                                const Spacer(),
-                                Text(topic.mastery.round().toString() + '%', style: TextStyle(color: color, fontWeight: FontWeight.w900)),
-                              ],
-                            ),
-                            const Spacer(),
-                            Text(topic.topic, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)),
-                            const SizedBox(height: 8),
-                            LinearProgressIndicator(value: topic.mastery / 100, minHeight: 7, color: color, borderRadius: BorderRadius.circular(10)),
-                            const SizedBox(height: 6),
-                            Text(topic.total.toString() + ' questions', style: Theme.of(context).textTheme.bodySmall),
-                          ],
+                              ),
+                              const SizedBox(width: 14),
+                              Text(
+                                topic.mastery.round().toString() + '%',
+                                style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                ],
             ],
           ),
         );
@@ -305,9 +405,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
       children: [
-        Text('Practice', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+        Text('Practice', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 6),
         const Text('Choose a drill. Everything below works from the local SQLite database.'),
         const SizedBox(height: 18),
@@ -317,7 +417,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Session size: ' + sessionSize.round().toString(), style: const TextStyle(fontWeight: FontWeight.w900)),
+                Text('Session size: ' + sessionSize.round().toString(), style: const TextStyle(fontWeight: FontWeight.w800)),
                 Slider(
                   value: sessionSize,
                   min: 10,
@@ -415,9 +515,9 @@ class _RevisionScreenState extends State<RevisionScreen> {
         return RefreshIndicator(
           onRefresh: refresh,
           child: ListView(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
             children: [
-              Text('Revision', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+              Text('Revision', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
               const Text('Questions stay here until you finally mark them Easy.'),
               const SizedBox(height: 16),
@@ -425,9 +525,9 @@ class _RevisionScreenState extends State<RevisionScreen> {
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   leading: const CircleAvatar(child: Icon(Icons.all_inclusive)),
-                  title: const Text('All revision questions', style: TextStyle(fontWeight: FontWeight.w900)),
+                  title: const Text('All revision questions', style: TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: const Text('Again + Hard + Good'),
-                  trailing: Text('$total', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                  trailing: Text('$total', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
                   onTap: () => start('all'),
                 ),
               ),
@@ -503,9 +603,9 @@ class RevisionBucketCard extends StatelessWidget {
             foregroundColor: color,
             child: Icon(icon),
           ),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
           subtitle: Text(subtitle),
-          trailing: Text('$count', style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.w900)),
+          trailing: Text('$count', style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.w800)),
           onTap: onTap,
         ),
       ),
@@ -736,12 +836,12 @@ class _QuizScreenState extends State<QuizScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 14),
-            child: Center(child: Text((index + 1).toString() + '/' + queue.length.toString(), style: const TextStyle(fontWeight: FontWeight.w900))),
+            child: Center(child: Text((index + 1).toString() + '/' + queue.length.toString(), style: const TextStyle(fontWeight: FontWeight.w800))),
           ),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
         children: [
           Wrap(
             spacing: 8,
@@ -767,13 +867,13 @@ class _QuizScreenState extends State<QuizScreen> {
           const SizedBox(height: 14),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Text('TASK', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.4)),
+                      const Text('TASK', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.4)),
                       const Spacer(),
                       IconButton(onPressed: editNote, icon: const Icon(Icons.edit_note_outlined)),
                       IconButton(
@@ -822,7 +922,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       children: [
                         Icon(selected == question.answer ? Icons.check_circle : Icons.cancel, color: selected == question.answer ? green : red),
                         const SizedBox(width: 8),
-                        Text(selected == question.answer ? 'Correct' : 'Incorrect', style: const TextStyle(fontWeight: FontWeight.w900)),
+                        Text(selected == question.answer ? 'Correct' : 'Incorrect', style: const TextStyle(fontWeight: FontWeight.w800)),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -872,9 +972,9 @@ class StatsScreen extends StatelessWidget {
         final weak = [...stats.topics]..sort((a, b) => a.mastery.compareTo(b.mastery));
 
         return ListView(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
           children: [
-            Text('Stats', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+            Text('Stats', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 16),
             Wrap(
               spacing: 10,
@@ -887,18 +987,18 @@ class StatsScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 22),
-            Text('Review activity • 12 weeks', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+            Text('Review activity • 12 weeks', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 10),
             Card(child: Padding(padding: const EdgeInsets.all(14), child: Heatmap(activity: stats.activity))),
             const SizedBox(height: 22),
-            Text('Retention • last 14 days', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+            Text('Retention • last 14 days', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 10),
             Card(child: Padding(padding: const EdgeInsets.fromLTRB(14, 18, 14, 10), child: RetentionBars(data: stats.retention))),
             const SizedBox(height: 22),
             Row(
               children: [
-                Expanded(child: Text('Achievements', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900))),
-                Text(unlocked.toString() + '/24 unlocked', style: const TextStyle(fontWeight: FontWeight.w900)),
+                Expanded(child: Text('Achievements', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800))),
+                Text(unlocked.toString() + '/24 unlocked', style: const TextStyle(fontWeight: FontWeight.w800)),
               ],
             ),
             const SizedBox(height: 10),
@@ -934,16 +1034,16 @@ class StatsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Predicted exam score', style: TextStyle(fontWeight: FontWeight.w900)),
+                    const Text('Predicted exam score', style: TextStyle(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 8),
-                    Text(stats.predictedScore.toStringAsFixed(1) + '%', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900)),
+                    Text(stats.predictedScore.toStringAsFixed(1) + '%', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800)),
                     const Text('Based on recorded review accuracy; this is not a calibrated exam forecast.'),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 22),
-            Text('Weakest topics', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+            Text('Weakest topics', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
             for (final topic in weak.take(5))
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -997,7 +1097,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Library', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+              Text('Library', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
@@ -1044,7 +1144,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   final q = questions[i];
                   return Card(
                     child: ListTile(
-                      title: Text('#' + q.id.toString() + ' • ' + q.topic, style: const TextStyle(fontWeight: FontWeight.w900)),
+                      title: Text('#' + q.id.toString() + ' • ' + q.topic, style: const TextStyle(fontWeight: FontWeight.w800)),
                       subtitle: Text(
                         q.questionEnglish.isEmpty ? q.question : q.question + '\n' + q.questionEnglish,
                         maxLines: 4,
@@ -1073,11 +1173,11 @@ class QuestionDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Question #' + question.id.toString())),
       body: ListView(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
         children: [
           Pill(icon: Icons.sell_outlined, text: question.topic),
           const SizedBox(height: 12),
-          Text(question.question, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, height: 1.5)),
+          Text(question.question, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, height: 1.5)),
           if (question.questionEnglish.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(question.questionEnglish, style: Theme.of(context).textTheme.bodyLarge),
@@ -1101,7 +1201,7 @@ class QuestionDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Explanation', style: TextStyle(fontWeight: FontWeight.w900)),
+                  const Text('Explanation', style: TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 8),
                   Text(question.explanation.isEmpty ? 'Correct answer: ' + question.answer : question.explanation),
                   if (question.source.isNotEmpty) ...[
@@ -1203,9 +1303,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
       children: [
-        Text('Settings', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+        Text('Settings', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 18),
         const SectionTitle('Account'),
         Card(
@@ -1364,7 +1464,7 @@ class OptionButton extends StatelessWidget {
                 radius: 18,
                 backgroundColor: color?.withValues(alpha: .18),
                 foregroundColor: color,
-                child: Text(keyText, style: const TextStyle(fontWeight: FontWeight.w900)),
+                child: Text(keyText, style: const TextStyle(fontWeight: FontWeight.w800)),
               ),
               const SizedBox(width: 12),
               Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600, height: 1.35))),
@@ -1413,7 +1513,7 @@ class ModeTile extends StatelessWidget {
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
           leading: CircleAvatar(backgroundColor: c.withValues(alpha: .1), foregroundColor: c, child: Icon(icon)),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
           subtitle: Text(subtitle),
           trailing: const Icon(Icons.chevron_right),
           onTap: onTap,
@@ -1445,7 +1545,7 @@ class Pill extends StatelessWidget {
           children: [
             Icon(icon, size: 15, color: c),
             const SizedBox(width: 6),
-            Text(text, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: c)),
+            Text(text, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: c)),
           ],
         ),
       ),
@@ -1471,7 +1571,7 @@ class MetricCard extends StatelessWidget {
             children: [
               Icon(icon, size: 20),
               const SizedBox(height: 12),
-              Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+              Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
               Text(label, style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
@@ -1494,7 +1594,7 @@ class Heatmap extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(total.toString() + ' reviews in 12 weeks', style: const TextStyle(fontWeight: FontWeight.w900)),
+        Text(total.toString() + ' reviews in 12 weeks', style: const TextStyle(fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
         GridView.builder(
           shrinkWrap: true,
@@ -1573,7 +1673,7 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+      child: Text(text, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
     );
   }
 }
