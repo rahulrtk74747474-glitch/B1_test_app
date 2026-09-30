@@ -50,8 +50,31 @@ class _B1AppState extends State<B1App> {
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: scheme.surface,
-      fontFamily: 'JetBrains Mono',
-      fontFamilyFallback: const ['Noto Sans Devanagari', 'sans-serif', 'monospace'],
+      fontFamilyFallback: const ['Noto Sans Devanagari', 'sans-serif'],
+      visualDensity: VisualDensity.standard,
+      textTheme: const TextTheme(
+        headlineMedium: TextStyle(fontSize: 28, height: 1.2),
+        titleLarge: TextStyle(fontSize: 20, height: 1.3),
+        titleMedium: TextStyle(fontSize: 17, height: 1.35),
+        bodyLarge: TextStyle(fontSize: 16, height: 1.45),
+        bodyMedium: TextStyle(fontSize: 15, height: 1.45),
+        bodySmall: TextStyle(fontSize: 13, height: 1.35),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        height: 72,
+        backgroundColor: scheme.surface,
+        indicatorColor: scheme.primaryContainer,
+        labelTextStyle: WidgetStatePropertyAll(
+          TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.onSurface),
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        minVerticalPadding: 10,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+      ),
       cardTheme: CardThemeData(
         elevation: 0,
         margin: EdgeInsets.zero,
