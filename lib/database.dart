@@ -21,7 +21,7 @@ class AppDatabase {
     final path = p.join(await getDatabasesPath(), 'b1_daily_drill.db');
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -63,6 +63,9 @@ class AppDatabase {
             personal_note TEXT NOT NULL DEFAULT '',
             average_time_ms REAL NOT NULL DEFAULT 0,
             last_result INTEGER,
+            last_rating TEXT,
+            repeat_every INTEGER NOT NULL DEFAULT 0,
+            next_repeat_review INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY(question_id) REFERENCES questions(id) ON DELETE CASCADE
           )
         ''');
@@ -90,6 +93,11 @@ class AppDatabase {
           await db.execute("ALTER TABLE questions ADD COLUMN option_c_en TEXT NOT NULL DEFAULT ''");
           await db.execute("ALTER TABLE questions ADD COLUMN option_d_en TEXT NOT NULL DEFAULT ''");
           await db.execute("ALTER TABLE questions ADD COLUMN explanation_en TEXT NOT NULL DEFAULT ''");
+        }
+        if (oldVersion < 3) {
+          await db.execute("ALTER TABLE progress ADD COLUMN last_rating TEXT");
+          await db.execute("ALTER TABLE progress ADD COLUMN repeat_every INTEGER NOT NULL DEFAULT 0");
+          await db.execute("ALTER TABLE progress ADD COLUMN next_repeat_review INTEGER NOT NULL DEFAULT 0");
         }
       },
     );
@@ -158,14 +166,66 @@ class AppDatabase {
     return Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM questions')) ?? 0;
   }
 
+  Future<int> totalReviewCount() async {
+    final db = await database;
+    return Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM reviews')) ?? 0;
+  }
+
   Future<int> dueCount() async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
+    final reviewCount = await totalReviewCount();
     return Sqflite.firstIntValue(await db.rawQuery(
-          'SELECT COUNT(*) FROM progress WHERE attempts > 0 AND next_due <= ?',
-          [now],
+          '''
+          SELECT COUNT(*) FROM progress
+          WHERE attempts > 0
+            AND (
+              (last_rating IN ('again','hard','good') AND next_repeat_review > 0 AND next_repeat_review <= ?)
+              OR
+              ((last_rating IS NULL OR last_rating = 'easy') AND next_due <= ?)
+            )
+          ''',
+          [reviewCount, now],
         )) ??
         0;
+  }
+
+  Future<Map<String, int>> revisionCounts() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT last_rating, COUNT(*) AS total
+      FROM progress
+      WHERE last_rating IN ('again','hard','good')
+      GROUP BY last_rating
+    ''');
+    final result = {'again': 0, 'hard': 0, 'good': 0};
+    for (final row in rows) {
+      final key = row['last_rating'] as String?;
+      if (key != null && result.containsKey(key)) {
+        result[key] = (row['total'] as num).toInt();
+      }
+    }
+    return result;
+  }
+
+  Future<List<Question>> revisionQuestions(String rating, {int limit = 200}) async {
+    final db = await database;
+    final clause = rating == 'all'
+        ? "p.last_rating IN ('again','hard','good')"
+        : 'p.last_rating = ?';
+    final args = <Object?>[];
+    if (rating != 'all') args.add(rating);
+    args.add(limit);
+    final rows = await db.rawQuery('''
+      SELECT q.* FROM questions q
+      JOIN progress p ON p.question_id = q.id
+      WHERE $clause
+      ORDER BY
+        CASE p.last_rating WHEN 'again' THEN 1 WHEN 'hard' THEN 2 ELSE 3 END,
+        p.last_answered DESC
+      LIMIT ?
+    ''', args);
+    return rows.map(Question.fromDb).toList();
   }
 
   Future<List<TopicSummary>> topicSummaries() async {
@@ -211,6 +271,7 @@ class AppDatabase {
     switch (mode) {
       case PracticeMode.dailyReview:
         final now = DateTime.now();
+        final reviewCount = await totalReviewCount();
         final start = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
         final tomorrow = DateTime(now.year, now.month, now.day + 1).millisecondsSinceEpoch;
         final introduced = Sqflite.firstIntValue(await db.rawQuery(
@@ -222,10 +283,18 @@ class AppDatabase {
         final dueRows = await db.rawQuery('''
           SELECT q.* FROM questions q
           JOIN progress p ON p.question_id = q.id
-          WHERE p.attempts > 0 AND p.next_due <= ?
-          ORDER BY p.next_due ASC
+          WHERE p.attempts > 0
+            AND (
+              (p.last_rating IN ('again','hard','good') AND p.next_repeat_review > 0 AND p.next_repeat_review <= ?)
+              OR
+              ((p.last_rating IS NULL OR p.last_rating = 'easy') AND p.next_due <= ?)
+            )
+          ORDER BY
+            CASE p.last_rating WHEN 'again' THEN 1 WHEN 'hard' THEN 2 WHEN 'good' THEN 3 ELSE 4 END,
+            p.next_repeat_review ASC,
+            p.next_due ASC
           LIMIT ?
-        ''', [now.millisecondsSinceEpoch, limit]);
+        ''', [reviewCount, now.millisecondsSinceEpoch, limit]);
         rows = [...dueRows];
         final remainingSlots = math.max(0, limit - rows.length);
         final takeNew = math.min(remainingSlots, newRemaining);
@@ -270,6 +339,18 @@ class AppDatabase {
       case PracticeMode.random50:
         rows = await db.rawQuery('SELECT * FROM questions ORDER BY RANDOM() LIMIT 50');
         break;
+      case PracticeMode.revisionAll:
+        rows = (await revisionQuestions('all', limit: limit)).map((q) => q.toDb()).toList();
+        break;
+      case PracticeMode.revisionAgain:
+        rows = (await revisionQuestions('again', limit: limit)).map((q) => q.toDb()).toList();
+        break;
+      case PracticeMode.revisionHard:
+        rows = (await revisionQuestions('hard', limit: limit)).map((q) => q.toDb()).toList();
+        break;
+      case PracticeMode.revisionGood:
+        rows = (await revisionQuestions('good', limit: limit)).map((q) => q.toDb()).toList();
+        break;
     }
     return rows.map(Question.fromDb).toList();
   }
@@ -305,6 +386,25 @@ class AppDatabase {
         currentRepetitions: (row['repetitions'] as int?) ?? 0,
       );
       final firstAnswered = (row['first_answered'] as int?) ?? now.millisecondsSinceEpoch;
+
+      final reviewId = await txn.insert('reviews', {
+        'question_id': question.id,
+        'answered_at': now.millisecondsSinceEpoch,
+        'correct': correct ? 1 : 0,
+        'rating': rating.name,
+        'time_ms': timeMs,
+        'selected_answer': selectedAnswer,
+        'mode': mode.name,
+      });
+
+      final repeatEvery = switch (rating) {
+        ReviewRating.again => 10,
+        ReviewRating.hard => 30,
+        ReviewRating.good => 70,
+        ReviewRating.easy => 0,
+      };
+      final nextRepeatReview = repeatEvery == 0 ? 0 : reviewId + repeatEvery;
+
       await txn.insert(
         'progress',
         {
@@ -321,18 +421,12 @@ class AppDatabase {
           'personal_note': (row['personal_note'] as String?) ?? '',
           'average_time_ms': newAverage,
           'last_result': correct ? 1 : 0,
+          'last_rating': rating.name,
+          'repeat_every': repeatEvery,
+          'next_repeat_review': nextRepeatReview,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      await txn.insert('reviews', {
-        'question_id': question.id,
-        'answered_at': now.millisecondsSinceEpoch,
-        'correct': correct ? 1 : 0,
-        'rating': rating.name,
-        'time_ms': timeMs,
-        'selected_answer': selectedAnswer,
-        'mode': mode.name,
-      });
     });
   }
 
