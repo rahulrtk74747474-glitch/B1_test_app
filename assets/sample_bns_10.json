@@ -2,101 +2,571 @@
   {
     "id": 47,
     "topic": "BNS",
-    "question": "A six-year-old child fires a revolver at a person, but the bullet does not hit. According to the source question, what is the legal position under BNS 2023?",
-    "options": {"A":"Section 109","B":"Section 105","C":"No offence under Section 20","D":"No offence under Section 21"},
+    "question": "N% o\"kZ dk ,d cPpk jktsUnz dks fjokYoj ls xksyh ekj nsrk gS ysfdu xksyh ugha yxrhA cPps us vijk/k fd;k Hkkjrh; U;k; lafgrk 2023 dh /kkjk &",
+    "options": {
+      "A": "109 ds v/khu",
+      "B": "105 ds v/khu",
+      "C": "20 ds v/khu dksbZ vijk/k ugha",
+      "D": "21 ds v/khu dksbZ vijk/k ugha"
+    },
     "answer": "C",
-    "explanation": "The PDF answer key marks option C for question 47.",
+    "explanation_hi": "पीडीएफ उत्तर कुंजी के अनुसार सही उत्तर विकल्प C है।",
+    "question_en": "A six-year-old child fires a revolver at a person, but the bullet does not hit. According to the source question, what is the legal position under BNS 2023?",
+    "options_en": {
+      "A": "Under Section 109",
+      "B": "Under Section 105",
+      "C": "No offence under Section 20",
+      "D": "No offence under Section 21"
+    },
+    "explanation_en": "According to the PDF answer key, option C is correct.",
     "difficulty": "medium",
-    "source": "1-6500.pdf, page 4, question 47"
+    "source": "1-6500.pdf, page 4, question 47",
+    "legacy_segments": {
+      "question": [
+        {
+          "text": "N% o\"kZ dk ,d cPpk jktsUnz dks fjokYoj ls xksyh ekj nsrk gS ysfdu xksyh ugha yxrhA cPps us vijk/k fd;k Hkkjrh; U;k; lafgrk 2023 dh /kkjk &",
+          "legacy": true
+        }
+      ],
+      "options": {
+        "A": [
+          {
+            "text": "109 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "B": [
+          {
+            "text": "105 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "C": [
+          {
+            "text": "20 ds v/khu dksbZ vijk/k ugha",
+            "legacy": true
+          }
+        ],
+        "D": [
+          {
+            "text": "21 ds v/khu dksbZ vijk/k ugha",
+            "legacy": true
+          }
+        ]
+      }
+    }
   },
   {
     "id": 48,
     "topic": "BNS",
-    "question": "Rajesh kills his wife and cuts and burns the body to dispose of it. Which combination of BNS 2023 sections is marked correct in the source?",
-    "options": {"A":"Sections 103(1) and 248","B":"Sections 103(1) and 249","C":"Sections 103(1) and 238","D":"Sections 103(1) and 239"},
+    "question": "jkts'k viuh iRuh dh gR;k djds mldh yk'k dks [kqnZ&cqnZ djus ds fy, VqdM+s&2 djds tyrs gq, rUnwj esa Mky nsrk gS mlus vijk/k fd;k gS Hkkjrh; U;k; lafgrk 2023 dh /kkjk &",
+    "options": {
+      "A": "103¼1½] 248 ds v/khu",
+      "B": "103¼1½] 249 ds v/khu",
+      "C": "103¼1½] 238 ds v/khu",
+      "D": "103¼1½] 239 ds v/khu"
+    },
     "answer": "C",
-    "explanation": "The PDF answer key marks option C for question 48.",
+    "explanation_hi": "पीडीएफ उत्तर कुंजी के अनुसार सही उत्तर विकल्प C है।",
+    "question_en": "Rajesh kills his wife and cuts and burns the body to dispose of it. Which combination of BNS 2023 sections is marked correct in the source?",
+    "options_en": {
+      "A": "Sections 103(1) and 248",
+      "B": "Sections 103(1) and 249",
+      "C": "Sections 103(1) and 238",
+      "D": "Sections 103(1) and 239"
+    },
+    "explanation_en": "According to the PDF answer key, option C is correct.",
     "difficulty": "medium",
-    "source": "1-6500.pdf, page 4, question 48"
+    "source": "1-6500.pdf, page 4, question 48",
+    "legacy_segments": {
+      "question": [
+        {
+          "text": "jkts'k viuh iRuh dh gR;k djds mldh yk'k dks [kqnZ&cqnZ djus ds fy, VqdM+s&2 djds tyrs gq, rUnwj esa Mky nsrk gS mlus vijk/k fd;k gS Hkkjrh; U;k; lafgrk 2023 dh /kkjk &",
+          "legacy": true
+        }
+      ],
+      "options": {
+        "A": [
+          {
+            "text": "103¼1½] 248 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "B": [
+          {
+            "text": "103¼1½] 249 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "C": [
+          {
+            "text": "103¼1½] 238 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "D": [
+          {
+            "text": "103¼1½] 239 ds v/khu",
+            "legacy": true
+          }
+        ]
+      }
+    }
   },
   {
     "id": 49,
     "topic": "BNS",
-    "question": "A police officer arrests a person and keeps that person in custody for 30 hours. Which BNS 2023 section is marked in the source?",
-    "options": {"A":"Section 125","B":"Section 127","C":"Section 126","D":"Section 124"},
+    "question": ",d O;fDr dks ,d iqfyl vQlj fxjQ~rkj djds 30 ?k.Vs rd viuh fgjklr esa j[kdj vijk/k djrk gS Hkkjrh; U;k; lafgrk 2023 dh /kkjk&",
+    "options": {
+      "A": "125 ds v/khu",
+      "B": "127 ds v/khu",
+      "C": "126 ds v/khu",
+      "D": "124 ds v/khu"
+    },
     "answer": "B",
-    "explanation": "The PDF answer key marks option B for question 49.",
+    "explanation_hi": "पीडीएफ उत्तर कुंजी के अनुसार सही उत्तर विकल्प B है।",
+    "question_en": "A police officer arrests a person and keeps that person in custody for 30 hours. Which BNS 2023 section is marked in the source?",
+    "options_en": {
+      "A": "Under Section 125",
+      "B": "Under Section 127",
+      "C": "Under Section 126",
+      "D": "Under Section 124"
+    },
+    "explanation_en": "According to the PDF answer key, option B is correct.",
     "difficulty": "medium",
-    "source": "1-6500.pdf, page 4, question 49"
+    "source": "1-6500.pdf, page 4, question 49",
+    "legacy_segments": {
+      "question": [
+        {
+          "text": ",d O;fDr dks ,d iqfyl vQlj fxjQ~rkj djds 30 ?k.Vs rd viuh fgjklr esa j[kdj vijk/k djrk gS Hkkjrh; U;k; lafgrk 2023 dh /kkjk&",
+          "legacy": true
+        }
+      ],
+      "options": {
+        "A": [
+          {
+            "text": "125 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "B": [
+          {
+            "text": "127 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "C": [
+          {
+            "text": "126 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "D": [
+          {
+            "text": "124 ds v/khu",
+            "legacy": true
+          }
+        ]
+      }
+    }
   },
   {
     "id": 51,
     "topic": "BNS",
-    "question": "Constable Ram Singh negligently allows an offender to escape from his custody. Which BNS 2023 section is marked correct in the source?",
-    "options": {"A":"Section 258","B":"Section 259","C":"Section 260","D":"Section 261"},
+    "question": "flikgh jke flag ykijokgh ls viuh fgjklr ls ,d vijk/kh dks Hkkxus nsrk gS mlus vijk/k fd;k gS Hkkjrh; U;k; lafgrk 2023 dh /kkjk &",
+    "options": {
+      "A": "258 dk",
+      "B": "259 dk",
+      "C": "260 dk",
+      "D": "261 dk"
+    },
     "answer": "D",
-    "explanation": "The PDF answer key marks option D for question 51.",
+    "explanation_hi": "पीडीएफ उत्तर कुंजी के अनुसार सही उत्तर विकल्प D है।",
+    "question_en": "Constable Ram Singh negligently allows an offender to escape from his custody. Which BNS 2023 section is marked correct in the source?",
+    "options_en": {
+      "A": "Section 258",
+      "B": "Section 259",
+      "C": "Section 260",
+      "D": "Section 261"
+    },
+    "explanation_en": "According to the PDF answer key, option D is correct.",
     "difficulty": "medium",
-    "source": "1-6500.pdf, page 4, question 51"
+    "source": "1-6500.pdf, page 4, question 51",
+    "legacy_segments": {
+      "question": [
+        {
+          "text": "flikgh jke flag ykijokgh ls viuh fgjklr ls ,d vijk/kh dks Hkkxus nsrk gS mlus vijk/k fd;k gS Hkkjrh; U;k; lafgrk 2023 dh /kkjk &",
+          "legacy": true
+        }
+      ],
+      "options": {
+        "A": [
+          {
+            "text": "258 dk",
+            "legacy": true
+          }
+        ],
+        "B": [
+          {
+            "text": "259 dk",
+            "legacy": true
+          }
+        ],
+        "C": [
+          {
+            "text": "260 dk",
+            "legacy": true
+          }
+        ],
+        "D": [
+          {
+            "text": "261 dk",
+            "legacy": true
+          }
+        ]
+      }
+    }
   },
   {
     "id": 53,
     "topic": "BNS",
-    "question": "Ram puts his hand into Karim's shirt pocket intending to steal a purse, but the pocket is empty. Which BNS provision is marked correct in the source?",
-    "options": {"A":"Section 303(1) read with 62","B":"Section 303(2) read with 62","C":"Section 305 read with 62","D":"No offence"},
+    "question": "*jke* djhe dh deht dh tsc esa ls ilZ pqjkus dh uh;r ls gkFk Mkyrk gS ysfdu tsc esa dqN ugha feyrk A jke us vijk/k fd;k gS Hkkjrh; U;k; lafgrk 2023 dh &",
+    "options": {
+      "A": "/kkjk 303¼1½@62 dk",
+      "B": "/kkjk 303¼2½@62 dk",
+      "C": "/kkjk 305@62 dk",
+      "D": "dksbZ vijk/k ugha fd;k"
+    },
     "answer": "B",
-    "explanation": "The PDF answer key marks option B for question 53.",
+    "explanation_hi": "पीडीएफ उत्तर कुंजी के अनुसार सही उत्तर विकल्प B है।",
+    "question_en": "Ram puts his hand into Karim's shirt pocket intending to steal a purse, but the pocket is empty. Which BNS provision is marked correct in the source?",
+    "options_en": {
+      "A": "Section 303(1) read with 62",
+      "B": "Section 303(2) read with 62",
+      "C": "Section 305 read with 62",
+      "D": "No offence"
+    },
+    "explanation_en": "According to the PDF answer key, option B is correct.",
     "difficulty": "hard",
-    "source": "1-6500.pdf, page 4, question 53"
+    "source": "1-6500.pdf, page 4, question 53",
+    "legacy_segments": {
+      "question": [
+        {
+          "text": "*jke* djhe dh deht dh tsc esa ls ilZ pqjkus dh uh;r ls gkFk Mkyrk gS ysfdu tsc esa dqN ugha feyrk A jke us vijk/k fd;k gS Hkkjrh; U;k; lafgrk 2023 dh &",
+          "legacy": true
+        }
+      ],
+      "options": {
+        "A": [
+          {
+            "text": "/kkjk 303¼1½@62 dk",
+            "legacy": true
+          }
+        ],
+        "B": [
+          {
+            "text": "/kkjk 303¼2½@62 dk",
+            "legacy": true
+          }
+        ],
+        "C": [
+          {
+            "text": "/kkjk 305@62 dk",
+            "legacy": true
+          }
+        ],
+        "D": [
+          {
+            "text": "dksbZ vijk/k ugha fd;k",
+            "legacy": true
+          }
+        ]
+      }
+    }
   },
   {
     "id": 54,
     "topic": "BNS",
-    "question": "A husband subjects his wife to dowry-related cruelty and she dies by suicide. Which BNS 2023 section is marked correct in the source?",
-    "options": {"A":"Section 103(1)","B":"Section 106","C":"Section 80","D":"No offence"},
+    "question": "gjeksgu iRuh }kjk ngst u ykus ij mlds lkFk nqO;Zogkj o ekj&ihV djrk gS ftlls og vkRegR;k dj ysrh gSA gjeksgu us vijk/k fd;k gS Hkkjrh; U;k; lafgrk 2023 dh &",
+    "options": {
+      "A": "/kkjk 103¼1½",
+      "B": "/kkjk 106",
+      "C": "/kkjk 80",
+      "D": "dksbZ vijk/k ugha fd;k"
+    },
     "answer": "C",
-    "explanation": "The PDF answer key marks option C for question 54.",
+    "explanation_hi": "पीडीएफ उत्तर कुंजी के अनुसार सही उत्तर विकल्प C है।",
+    "question_en": "A husband subjects his wife to dowry-related cruelty and she dies by suicide. Which BNS 2023 section is marked correct in the source?",
+    "options_en": {
+      "A": "Section 103(1)",
+      "B": "Section 106",
+      "C": "Section 80",
+      "D": "No offence"
+    },
+    "explanation_en": "According to the PDF answer key, option C is correct.",
     "difficulty": "medium",
-    "source": "1-6500.pdf, page 4, question 54"
+    "source": "1-6500.pdf, page 4, question 54",
+    "legacy_segments": {
+      "question": [
+        {
+          "text": "gjeksgu iRuh }kjk ngst u ykus ij mlds lkFk nqO;Zogkj o ekj&ihV djrk gS ftlls og vkRegR;k dj ysrh gSA gjeksgu us vijk/k fd;k gS Hkkjrh; U;k; lafgrk 2023 dh &",
+          "legacy": true
+        }
+      ],
+      "options": {
+        "A": [
+          {
+            "text": "/kkjk 103¼1½",
+            "legacy": true
+          }
+        ],
+        "B": [
+          {
+            "text": "/kkjk 106",
+            "legacy": true
+          }
+        ],
+        "C": [
+          {
+            "text": "/kkjk 80",
+            "legacy": true
+          }
+        ],
+        "D": [
+          {
+            "text": "dksbZ vijk/k ugha fd;k",
+            "legacy": true
+          }
+        ]
+      }
+    }
   },
   {
     "id": 55,
     "topic": "BNS",
-    "question": "A police officer commits rape on a woman brought to a police station. Which BNS 2023 section is marked correct in the source?",
-    "options": {"A":"Section 63","B":"Section 68","C":"Section 66","D":"None of these"},
+    "question": "eunhi iqfyl vQlj gksrs gq, iqfyl Fkkuk esa ykbZ xbZ efgyk ls cykRdkj djrk gS mlus vijk/k fd;k gS Hkkjrh; U;k; lafgrk 2023 dh /kkjk &",
+    "options": {
+      "A": "63 ds v/khu",
+      "B": "68 ds v/khu",
+      "C": "66 ds v/khu",
+      "D": "dksbZ vijk/k ugha fd;k"
+    },
     "answer": "B",
-    "explanation": "The PDF answer key marks option B for question 55.",
+    "explanation_hi": "पीडीएफ उत्तर कुंजी के अनुसार सही उत्तर विकल्प B है।",
+    "question_en": "A police officer commits rape on a woman brought to a police station. Which BNS 2023 section is marked correct in the source?",
+    "options_en": {
+      "A": "Under Section 63",
+      "B": "Under Section 68",
+      "C": "Under Section 66",
+      "D": "None of these"
+    },
+    "explanation_en": "According to the PDF answer key, option B is correct.",
     "difficulty": "medium",
-    "source": "1-6500.pdf, page 4, question 55"
+    "source": "1-6500.pdf, page 4, question 55",
+    "legacy_segments": {
+      "question": [
+        {
+          "text": "eunhi iqfyl vQlj gksrs gq, iqfyl Fkkuk esa ykbZ xbZ efgyk ls cykRdkj djrk gS mlus vijk/k fd;k gS Hkkjrh; U;k; lafgrk 2023 dh /kkjk &",
+          "legacy": true
+        }
+      ],
+      "options": {
+        "A": [
+          {
+            "text": "63 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "B": [
+          {
+            "text": "68 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "C": [
+          {
+            "text": "66 ds v/khu",
+            "legacy": true
+          }
+        ],
+        "D": [
+          {
+            "text": "dksbZ vijk/k ugha fd;k",
+            "legacy": true
+          }
+        ]
+      }
+    }
   },
   {
     "id": 56,
     "topic": "BNS",
-    "question": "In which provision does the source place the definition of movable property under BNS 2023?",
-    "options": {"A":"Section 2(5)","B":"Section 2(16)","C":"Section 2(21)","D":"Section 2(28)"},
+    "question": "py lEifRr dh ifjHkk\"kk nh xbZ gS Hkkjrh; U;k; lafgrk 2023 dh",
+    "options": {
+      "A": "/kkjk 2(5)",
+      "B": "/kkjk 2(16)",
+      "C": "/kkjk 2¼21½",
+      "D": "/kkjk 2¼28½"
+    },
     "answer": "C",
-    "explanation": "The PDF answer key marks option C for question 56.",
+    "explanation_hi": "पीडीएफ उत्तर कुंजी के अनुसार सही उत्तर विकल्प C है।",
+    "question_en": "In which provision does the source place the definition of movable property under BNS 2023?",
+    "options_en": {
+      "A": "Section 2(5)",
+      "B": "Section 2(16)",
+      "C": "Section 2(21)",
+      "D": "Section 2(28)"
+    },
+    "explanation_en": "According to the PDF answer key, option C is correct.",
     "difficulty": "easy",
-    "source": "1-6500.pdf, page 4, question 56"
+    "source": "1-6500.pdf, page 4, question 56",
+    "legacy_segments": {
+      "question": [
+        {
+          "text": "py lEifRr dh ifjHkk\"kk nh xbZ gS Hkkjrh; U;k; lafgrk 2023 dh",
+          "legacy": true
+        }
+      ],
+      "options": {
+        "A": [
+          {
+            "text": "/kkjk 2(5)",
+            "legacy": true
+          }
+        ],
+        "B": [
+          {
+            "text": "/kkjk 2(16)",
+            "legacy": true
+          }
+        ],
+        "C": [
+          {
+            "text": "/kkjk 2¼21½",
+            "legacy": true
+          }
+        ],
+        "D": [
+          {
+            "text": "/kkjk 2¼28½",
+            "legacy": true
+          }
+        ]
+      }
+    }
   },
   {
     "id": 100,
     "topic": "BNS",
-    "question": "Krishna harasses his wife for dowry. Which BNS 2023 section is marked correct in the source?",
-    "options": {"A":"Section 346","B":"Section 84","C":"Section 85","D":"None of these"},
+    "question": "d.`\".k ngst ds fy;s viuh iRuh dks ijs'kku djrk gS] d.`\".k us fuEu esa ls fdl /kkjk dk vijk/k fd;k",
+    "options": {
+      "A": "346 Hkkjrh; U;k; lafgrk 2023",
+      "B": "84 Hkkjrh; U;k; lafgrk 2023",
+      "C": "85 Hkkjrh; U;k; lafgrk 2023",
+      "D": "mijksDr esa ls dksbZ ugha"
+    },
     "answer": "C",
-    "explanation": "The PDF answer key marks option C for question 100.",
+    "explanation_hi": "पीडीएफ उत्तर कुंजी के अनुसार सही उत्तर विकल्प C है।",
+    "question_en": "Krishna harasses his wife for dowry. Which BNS 2023 section is marked correct in the source?",
+    "options_en": {
+      "A": "Section 346, BNS 2023",
+      "B": "Section 84, BNS 2023",
+      "C": "Section 85, BNS 2023",
+      "D": "None of these"
+    },
+    "explanation_en": "According to the PDF answer key, option C is correct.",
     "difficulty": "easy",
-    "source": "1-6500.pdf, page 6, question 100"
+    "source": "1-6500.pdf, page 6, question 100",
+    "legacy_segments": {
+      "question": [
+        {
+          "text": "d.`\".k ngst ds fy;s viuh iRuh dks ijs'kku djrk gS] d.`\".k us fuEu esa ls fdl /kkjk dk vijk/k fd;k",
+          "legacy": true
+        }
+      ],
+      "options": {
+        "A": [
+          {
+            "text": "346 Hkkjrh; U;k; lafgrk 2023",
+            "legacy": true
+          }
+        ],
+        "B": [
+          {
+            "text": "84 Hkkjrh; U;k; lafgrk 2023",
+            "legacy": true
+          }
+        ],
+        "C": [
+          {
+            "text": "85 Hkkjrh; U;k; lafgrk 2023",
+            "legacy": true
+          }
+        ],
+        "D": [
+          {
+            "text": "mijksDr esa ls dksbZ ugha",
+            "legacy": true
+          }
+        ]
+      }
+    }
   },
   {
     "id": 101,
     "topic": "BNS",
-    "question": "Ram whistles and makes gestures at a girl walking on the road. Which BNS 2023 section is marked correct in the source?",
-    "options": {"A":"Section 64","B":"Section 74","C":"Section 79","D":"Section 351"},
+    "question": "jke lM+d ij pyrh gqbZ yM+dh dks ns[kdj lhVh ctkrk gS vkSj bZ'kkjs djrk gS] jke us D;k vijk/k fd;k gS",
+    "options": {
+      "A": "64 Hkkjrh; U;k; lafgrk 2023",
+      "B": "74 Hkkjrh; U;k; lafgrk 2023",
+      "C": "79 Hkkjrh; U;k; lafgrk 2023",
+      "D": "351 Hkkjrh; U;k; lafgrk 2023"
+    },
     "answer": "C",
-    "explanation": "The PDF answer key marks option C for question 101.",
+    "explanation_hi": "पीडीएफ उत्तर कुंजी के अनुसार सही उत्तर विकल्प C है।",
+    "question_en": "Ram whistles and makes gestures at a girl walking on the road. Which BNS 2023 section is marked correct in the source?",
+    "options_en": {
+      "A": "Section 64, BNS 2023",
+      "B": "Section 74, BNS 2023",
+      "C": "Section 79, BNS 2023",
+      "D": "Section 351, BNS 2023"
+    },
+    "explanation_en": "According to the PDF answer key, option C is correct.",
     "difficulty": "easy",
-    "source": "1-6500.pdf, page 6, question 101"
+    "source": "1-6500.pdf, page 6, question 101",
+    "legacy_segments": {
+      "question": [
+        {
+          "text": "jke lM+d ij pyrh gqbZ yM+dh dks ns[kdj lhVh ctkrk gS vkSj bZ'kkjs djrk gS] jke us D;k vijk/k fd;k gS",
+          "legacy": true
+        }
+      ],
+      "options": {
+        "A": [
+          {
+            "text": "64 Hkkjrh; U;k; lafgrk 2023",
+            "legacy": true
+          }
+        ],
+        "B": [
+          {
+            "text": "74 Hkkjrh; U;k; lafgrk 2023",
+            "legacy": true
+          }
+        ],
+        "C": [
+          {
+            "text": "79 Hkkjrh; U;k; lafgrk 2023",
+            "legacy": true
+          }
+        ],
+        "D": [
+          {
+            "text": "351 Hkkjrh; U;k; lafgrk 2023",
+            "legacy": true
+          }
+        ]
+      }
+    }
   }
 ]
