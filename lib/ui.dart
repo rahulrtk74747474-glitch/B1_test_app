@@ -629,21 +629,6 @@ class _QuizScreenState extends State<QuizScreen> {
     await widget.prefs.setString('question_language', value.name);
   }
 
-  void scheduleInCurrentSession(Question item, ReviewRating rating) {
-    if (isMock) return;
-    final gap = switch (rating) {
-      ReviewRating.again => 10,
-      ReviewRating.hard => 30,
-      ReviewRating.good => 70,
-      ReviewRating.easy => 0,
-    };
-    if (gap == 0) return;
-    final targetIndex = index + gap + 1;
-    if (targetIndex <= queue.length) {
-      queue.insert(targetIndex, item);
-    }
-  }
-
   void choose(String key) {
     if (answered) return;
     final correct = key == question.answer;
@@ -664,12 +649,24 @@ class _QuizScreenState extends State<QuizScreen> {
     await AppDatabase.instance.recordAnswer(
       question: answeredQuestion,
       selectedAnswer: selected!,
-      correct: selected == question.answer,
+      correct: selected == answeredQuestion.answer,
       rating: rating,
       timeMs: DateTime.now().difference(started).inMilliseconds,
       mode: widget.mode,
     );
-    scheduleInCurrentSession(answeredQuestion, rating);
+    if (!isMock) {
+      final due = await AppDatabase.instance.dueRevisionQuestions(limit: 1);
+      if (due.isNotEmpty) {
+        final dueQuestion = due.first;
+        for (var i = index + 1; i < queue.length; i++) {
+          if (queue[i].id == dueQuestion.id) {
+            queue.removeAt(i);
+            break;
+          }
+        }
+        queue.insert(index + 1, dueQuestion);
+      }
+    }
     if (!mounted) return;
     if (index == queue.length - 1) {
       await finish();
@@ -683,6 +680,7 @@ class _QuizScreenState extends State<QuizScreen> {
     timer?.cancel();
     if (!mounted) return;
     final score = correctAnswers - (widget.negativeMarking ? wrongAnswers * .25 : 0);
+    final attempted = correctAnswers + wrongAnswers;
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -694,7 +692,7 @@ class _QuizScreenState extends State<QuizScreen> {
           children: [
             Text('Correct: ' + correctAnswers.toString()),
             Text('Wrong: ' + wrongAnswers.toString()),
-            Text('Score: ' + score.toStringAsFixed(2) + ' / ' + widget.questions.length.toString()),
+            Text('Score: ' + score.toStringAsFixed(2) + ' / ' + attempted.toString()),
           ],
         ),
         actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
