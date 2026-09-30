@@ -11,6 +11,8 @@ enum PracticeMode {
 
 enum ReviewRating { again, hard, good, easy }
 
+enum QuestionLanguage { hindi, english, both }
+
 class Question {
   const Question({
     required this.id,
@@ -19,6 +21,9 @@ class Question {
     required this.options,
     required this.answer,
     required this.explanation,
+    this.questionEnglish = '',
+    this.optionsEnglish = const {},
+    this.explanationEnglish = '',
     required this.difficulty,
     required this.source,
     this.image,
@@ -30,6 +35,9 @@ class Question {
   final Map<String, String> options;
   final String answer;
   final String explanation;
+  final String questionEnglish;
+  final Map<String, String> optionsEnglish;
+  final String explanationEnglish;
   final String difficulty;
   final String source;
   final String? image;
@@ -68,6 +76,14 @@ class Question {
       options[key] = _decodeSegments(value, legacyOptions[key]);
     }
 
+    final rawOptionsEnglish = json['options_en'] is Map
+        ? Map<String, dynamic>.from(json['options_en'] as Map)
+        : const <String, dynamic>{};
+    final optionsEnglish = <String, String>{
+      for (final key in const ['A', 'B', 'C', 'D'])
+        key: rawOptionsEnglish[key]?.toString().trim() ?? '',
+    };
+
     final answer = json['answer'].toString().toUpperCase().trim();
     if (!options.containsKey(answer)) {
       throw FormatException('Question ${json['id']} has invalid answer: $answer');
@@ -81,7 +97,10 @@ class Question {
       question: _decodeSegments(json['question'], legacy['question']),
       options: options,
       answer: answer,
-      explanation: json['explanation']?.toString().trim() ?? '',
+      explanation: (json['explanation_hi'] ?? json['explanation'])?.toString().trim() ?? '',
+      questionEnglish: json['question_en']?.toString().trim() ?? '',
+      optionsEnglish: optionsEnglish,
+      explanationEnglish: json['explanation_en']?.toString().trim() ?? '',
       difficulty: json['difficulty']?.toString().trim() ?? 'medium',
       source: json['source']?.toString().trim() ?? '',
       image: json['image']?.toString(),
@@ -100,6 +119,14 @@ class Question {
         },
         answer: row['answer'] as String,
         explanation: (row['explanation'] as String?) ?? '',
+        questionEnglish: (row['question_en'] as String?) ?? '',
+        optionsEnglish: {
+          'A': (row['option_a_en'] as String?) ?? '',
+          'B': (row['option_b_en'] as String?) ?? '',
+          'C': (row['option_c_en'] as String?) ?? '',
+          'D': (row['option_d_en'] as String?) ?? '',
+        },
+        explanationEnglish: (row['explanation_en'] as String?) ?? '',
         difficulty: (row['difficulty'] as String?) ?? 'medium',
         source: (row['source'] as String?) ?? '',
         image: row['image_path'] as String?,
@@ -115,6 +142,12 @@ class Question {
         'option_d': options['D']!,
         'answer': answer,
         'explanation': explanation,
+        'question_en': questionEnglish,
+        'option_a_en': optionsEnglish['A'] ?? '',
+        'option_b_en': optionsEnglish['B'] ?? '',
+        'option_c_en': optionsEnglish['C'] ?? '',
+        'option_d_en': optionsEnglish['D'] ?? '',
+        'explanation_en': explanationEnglish,
         'difficulty': difficulty,
         'source': source,
         'image_path': image,
@@ -127,6 +160,9 @@ class Question {
         'options': options,
         'answer': answer,
         'explanation': explanation,
+        'question_en': questionEnglish,
+        'options_en': optionsEnglish,
+        'explanation_en': explanationEnglish,
         'difficulty': difficulty,
         'source': source,
         if (image != null) 'image': image,
