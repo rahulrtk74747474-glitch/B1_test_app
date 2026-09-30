@@ -51,7 +51,7 @@ class _B1AppState extends State<B1App> {
       colorScheme: scheme,
       scaffoldBackgroundColor: scheme.surface,
       fontFamily: 'JetBrains Mono',
-      fontFamilyFallback: const ['monospace'],
+      fontFamilyFallback: const ['Noto Sans Devanagari', 'sans-serif', 'monospace'],
       cardTheme: CardThemeData(
         elevation: 0,
         margin: EdgeInsets.zero,
