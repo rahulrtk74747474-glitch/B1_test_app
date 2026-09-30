@@ -10,6 +10,12 @@ CREATE TABLE questions (
   option_d TEXT NOT NULL,
   answer TEXT NOT NULL CHECK(answer IN ('A','B','C','D')),
   explanation TEXT NOT NULL DEFAULT '',
+  question_en TEXT NOT NULL DEFAULT '',
+  option_a_en TEXT NOT NULL DEFAULT '',
+  option_b_en TEXT NOT NULL DEFAULT '',
+  option_c_en TEXT NOT NULL DEFAULT '',
+  option_d_en TEXT NOT NULL DEFAULT '',
+  explanation_en TEXT NOT NULL DEFAULT '',
   difficulty TEXT NOT NULL DEFAULT 'medium',
   source TEXT NOT NULL DEFAULT '',
   image_path TEXT,
@@ -31,6 +37,9 @@ CREATE TABLE progress (
   personal_note TEXT NOT NULL DEFAULT '',
   average_time_ms REAL NOT NULL DEFAULT 0,
   last_result INTEGER,
+  last_rating TEXT,
+  repeat_every INTEGER NOT NULL DEFAULT 0,
+  next_repeat_review INTEGER NOT NULL DEFAULT 0,
   FOREIGN KEY(question_id) REFERENCES questions(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_progress_due ON progress(next_due);
