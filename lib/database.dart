@@ -276,6 +276,17 @@ class AppDatabase {
     return rows.map((row) => row['topic'] as String).toList();
   }
 
+  Future<int> topicQuestionCount(String topic) async {
+    final db = await database;
+    return Sqflite.firstIntValue(
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM questions WHERE topic = ?',
+            [topic],
+          ),
+        ) ??
+        0;
+  }
+
   Future<List<Question>> buildSession({
     required PracticeMode mode,
     int sessionSize = 15,
@@ -283,7 +294,7 @@ class AppDatabase {
     String? topic,
   }) async {
     final db = await database;
-    final limit = mode == PracticeMode.random50 ? 50 : sessionSize.clamp(10, 20);
+    final limit = mode == PracticeMode.random50 ? 50 : math.max(1, sessionSize);
     List<Map<String, Object?>> rows;
 
     switch (mode) {
