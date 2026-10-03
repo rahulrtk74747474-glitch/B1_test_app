@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -21,7 +23,7 @@ class AppDatabase {
     final path = p.join(await getDatabasesPath(), 'b1_daily_drill.db');
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -44,6 +46,8 @@ class AppDatabase {
             difficulty TEXT NOT NULL DEFAULT 'medium',
             source TEXT NOT NULL DEFAULT '',
             image_path TEXT,
+            images_json TEXT NOT NULL DEFAULT '[]',
+            option_images_json TEXT NOT NULL DEFAULT '{}',
             imported_at INTEGER NOT NULL
           )
         ''');
@@ -99,6 +103,10 @@ class AppDatabase {
           await db.execute("ALTER TABLE progress ADD COLUMN repeat_every INTEGER NOT NULL DEFAULT 0");
           await db.execute("ALTER TABLE progress ADD COLUMN next_repeat_review INTEGER NOT NULL DEFAULT 0");
         }
+        if (oldVersion < 4) {
+          await db.execute("ALTER TABLE questions ADD COLUMN images_json TEXT NOT NULL DEFAULT '[]'");
+          await db.execute("ALTER TABLE questions ADD COLUMN option_images_json TEXT NOT NULL DEFAULT '{}'");
+        }
       },
     );
   }
@@ -139,12 +147,238 @@ class AppDatabase {
     });
   }
 
-  Future<({int inserted, int skipped})> importJsonText(String text) async {
-    final decoded = jsonDecode(text);
-    final rows = decoded is List ? decoded : [decoded];
-    final questions = rows
-        .map((item) => Question.fromJson(Map<String, dynamic>.from(item as Map)))
+  Future<Directory> _questionMediaDirectory() async {
+    final root = await getApplicationDocumentsDirectory();
+    final dir = Directory(p.join(root.path, 'question_media'));
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  String _normalizeArchivePath(String value) {
+    var normalized = value.replaceAll('\\', '/').trim();
+    while (normalized.startsWith('/')) {
+      normalized = normalized.substring(1);
+    }
+    final parts = normalized
+        .split('/')
+        .where((part) => part.isNotEmpty && part != '.')
         .toList();
+    if (parts.any((part) => part == '..')) {
+      throw const FormatException('Image path cannot contain ..');
+    }
+    return parts.join('/');
+  }
+
+  String _extensionForMime(String mime) {
+    final lower = mime.toLowerCase();
+    if (lower.contains('png')) return '.png';
+    if (lower.contains('webp')) return '.webp';
+    if (lower.contains('gif')) return '.gif';
+    if (lower.contains('bmp')) return '.bmp';
+    return '.jpg';
+  }
+
+  Future<String> _saveImageBytes(
+    Uint8List bytes, {
+    required int questionId,
+    required String label,
+    String? preferredName,
+    String? mime,
+  }) async {
+    final dir = await _questionMediaDirectory();
+    final preferredExt = preferredName == null ? '' : p.extension(preferredName);
+    final ext = preferredExt.isNotEmpty ? preferredExt : _extensionForMime(mime ?? '');
+    final safeLabel = label.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+    final file = File(
+      p.join(
+        dir.path,
+        'q${questionId}_${safeLabel}_${DateTime.now().microsecondsSinceEpoch}$ext',
+      ),
+    );
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
+  Future<String?> _materializeImageValue(
+    dynamic raw, {
+    required int questionId,
+    required String label,
+    Map<String, Uint8List> archiveFiles = const {},
+  }) async {
+    if (raw == null) return null;
+
+    if (raw is Map) {
+      final map = Map<String, dynamic>.from(raw);
+      final data = map['data'] ?? map['base64'];
+      if (data != null) {
+        var encoded = data.toString().trim();
+        var mime = map['mime']?.toString() ?? map['type']?.toString() ?? '';
+        if (encoded.startsWith('data:')) {
+          final comma = encoded.indexOf(',');
+          if (comma < 0) throw const FormatException('Invalid embedded image data URI');
+          final header = encoded.substring(5, comma);
+          mime = header.split(';').first;
+          encoded = encoded.substring(comma + 1);
+        }
+        final bytes = base64Decode(encoded.replaceAll(RegExp(r'\s+'), ''));
+        return _saveImageBytes(
+          Uint8List.fromList(bytes),
+          questionId: questionId,
+          label: label,
+          preferredName: map['name']?.toString(),
+          mime: mime,
+        );
+      }
+      final pathValue = map['path'] ?? map['file'];
+      if (pathValue != null) {
+        return _materializeImageValue(
+          pathValue.toString(),
+          questionId: questionId,
+          label: label,
+          archiveFiles: archiveFiles,
+        );
+      }
+      return null;
+    }
+
+    final value = raw.toString().trim();
+    if (value.isEmpty) return null;
+
+    if (value.startsWith('data:image/')) {
+      final comma = value.indexOf(',');
+      if (comma < 0) throw const FormatException('Invalid embedded image data URI');
+      final header = value.substring(5, comma);
+      final mime = header.split(';').first;
+      final encoded = value.substring(comma + 1).replaceAll(RegExp(r'\s+'), '');
+      final bytes = base64Decode(encoded);
+      return _saveImageBytes(
+        Uint8List.fromList(bytes),
+        questionId: questionId,
+        label: label,
+        mime: mime,
+      );
+    }
+
+    final normalized = _normalizeArchivePath(value);
+    final archived = archiveFiles[normalized] ??
+        archiveFiles['images/$normalized'] ??
+        archiveFiles[p.basename(normalized)];
+    if (archived != null) {
+      return _saveImageBytes(
+        archived,
+        questionId: questionId,
+        label: label,
+        preferredName: normalized,
+      );
+    }
+
+    return value;
+  }
+
+  Future<Map<String, dynamic>> _prepareQuestionJson(
+    Map<String, dynamic> source, {
+    Map<String, Uint8List> archiveFiles = const {},
+  }) async {
+    final json = Map<String, dynamic>.from(source);
+    final questionId = int.parse(json['id'].toString());
+
+    dynamic rawImages = json['images'];
+    if (rawImages == null && json['image'] != null) rawImages = [json['image']];
+    if (rawImages == null && json['image_base64'] != null) {
+      rawImages = [
+        {
+          'base64': json['image_base64'],
+          'mime': json['image_mime'] ?? 'image/jpeg',
+          'name': json['image_name'],
+        }
+      ];
+    }
+
+    final preparedImages = <String>[];
+    if (rawImages is List) {
+      for (var i = 0; i < rawImages.length; i++) {
+        final path = await _materializeImageValue(
+          rawImages[i],
+          questionId: questionId,
+          label: 'question_${i + 1}',
+          archiveFiles: archiveFiles,
+        );
+        if (path != null && path.isNotEmpty) preparedImages.add(path);
+      }
+    } else if (rawImages != null) {
+      final path = await _materializeImageValue(
+        rawImages,
+        questionId: questionId,
+        label: 'question_1',
+        archiveFiles: archiveFiles,
+      );
+      if (path != null && path.isNotEmpty) preparedImages.add(path);
+    }
+
+    final preparedOptionImages = <String, String>{};
+    final rawOptionImages = json['option_images'];
+    if (rawOptionImages is Map) {
+      for (final key in const ['A', 'B', 'C', 'D']) {
+        final path = await _materializeImageValue(
+          rawOptionImages[key],
+          questionId: questionId,
+          label: 'option_$key',
+          archiveFiles: archiveFiles,
+        );
+        if (path != null && path.isNotEmpty) preparedOptionImages[key] = path;
+      }
+    }
+
+    final rawOptionBase64 = json['option_images_base64'];
+    if (rawOptionBase64 is Map) {
+      for (final key in const ['A', 'B', 'C', 'D']) {
+        if (preparedOptionImages.containsKey(key) || rawOptionBase64[key] == null) continue;
+        final path = await _materializeImageValue(
+          {
+            'base64': rawOptionBase64[key],
+            'mime': 'image/jpeg',
+            'name': 'option_$key.jpg',
+          },
+          questionId: questionId,
+          label: 'option_$key',
+          archiveFiles: archiveFiles,
+        );
+        if (path != null && path.isNotEmpty) preparedOptionImages[key] = path;
+      }
+    }
+
+    if (preparedImages.isNotEmpty) {
+      json['images'] = preparedImages;
+      json['image'] = preparedImages.first;
+    } else {
+      json.remove('images');
+      json.remove('image');
+    }
+    json['option_images'] = preparedOptionImages;
+    json.remove('image_base64');
+    json.remove('image_mime');
+    json.remove('image_name');
+    json.remove('option_images_base64');
+    return json;
+  }
+
+  Future<({int inserted, int skipped, int images})> _importRows(
+    List<dynamic> rows, {
+    Map<String, Uint8List> archiveFiles = const {},
+  }) async {
+    final questions = <Question>[];
+    var imageCount = 0;
+    for (final item in rows) {
+      if (item is! Map) throw const FormatException('Every question must be a JSON object');
+      final prepared = await _prepareQuestionJson(
+        Map<String, dynamic>.from(item),
+        archiveFiles: archiveFiles,
+      );
+      final question = Question.fromJson(prepared);
+      questions.add(question);
+      imageCount += question.imagePaths.length + question.optionImages.length;
+    }
+
     final db = await database;
     var inserted = 0;
     var skipped = 0;
@@ -158,7 +392,62 @@ class AppDatabase {
         result > 0 ? inserted++ : skipped++;
       }
     });
-    return (inserted: inserted, skipped: skipped);
+    return (inserted: inserted, skipped: skipped, images: imageCount);
+  }
+
+  Future<({int inserted, int skipped, int images})> importJsonText(String text) async {
+    final decoded = jsonDecode(text);
+    final rows = decoded is List
+        ? decoded
+        : decoded is Map && decoded['questions'] is List
+            ? decoded['questions'] as List
+            : [decoded];
+    return _importRows(rows);
+  }
+
+  Future<({int inserted, int skipped, int images})> importQuestionBankBytes(
+    Uint8List bytes, {
+    required String fileName,
+  }) async {
+    final extension = p.extension(fileName).toLowerCase();
+    if (extension == '.json') {
+      return importJsonText(utf8.decode(bytes));
+    }
+    if (extension != '.zip') {
+      throw const FormatException('Choose a .json or .zip question bank');
+    }
+
+    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+    final archiveFiles = <String, Uint8List>{};
+    String? jsonText;
+
+    for (final entry in archive) {
+      if (!entry.isFile) continue;
+      final name = _normalizeArchivePath(entry.name);
+      final content = entry.readBytes();
+      if (content == null) continue;
+      if (p.basename(name).toLowerCase() == 'questions.json') {
+        jsonText = utf8.decode(content);
+      } else {
+        final ext = p.extension(name).toLowerCase();
+        if (const ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].contains(ext)) {
+          archiveFiles[name] = content;
+          archiveFiles[p.basename(name)] = content;
+        }
+      }
+    }
+
+    if (jsonText == null) {
+      throw const FormatException('ZIP must contain questions.json');
+    }
+
+    final decoded = jsonDecode(jsonText);
+    final rows = decoded is List
+        ? decoded
+        : decoded is Map && decoded['questions'] is List
+            ? decoded['questions'] as List
+            : [decoded];
+    return _importRows(rows, archiveFiles: archiveFiles);
   }
 
   Future<int> questionCount() async {
