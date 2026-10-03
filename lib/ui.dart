@@ -225,6 +225,38 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(load);
   }
 
+  Future<void> startTopicPractice(TopicSummary selectedTopic) async {
+    final requested = widget.prefs.getInt('session_size') ?? 15;
+    final sessionSize = requested < 1
+        ? 1
+        : (requested > selectedTopic.total ? selectedTopic.total : requested);
+
+    final questions = await AppDatabase.instance.buildSession(
+      mode: PracticeMode.topicPractice,
+      sessionSize: sessionSize,
+      dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30,
+      topic: selectedTopic.topic,
+    );
+    if (!mounted) return;
+    if (questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No questions are available for ${selectedTopic.topic}.')),
+      );
+      return;
+    }
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => QuizScreen(
+          questions: questions,
+          mode: PracticeMode.topicPractice,
+          prefs: widget.prefs,
+        ),
+      ),
+    );
+    if (mounted) setState(load);
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<({int due, StatsSnapshot stats, List<TopicSummary> topics})>(
@@ -296,42 +328,48 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context) {
                       final color = topic.mastery >= 50 ? green : amber;
                       return Card(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: color.withValues(alpha: .12),
-                                foregroundColor: color,
-                                child: const Icon(Icons.gavel),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(topic.topic, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                    const SizedBox(height: 8),
-                                    LinearProgressIndicator(
-                                      value: topic.mastery / 100,
-                                      minHeight: 7,
-                                      color: color,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      topic.total.toString() + ' questions',
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => startTopicPractice(topic),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: color.withValues(alpha: .12),
+                                  foregroundColor: color,
+                                  child: const Icon(Icons.gavel),
                                 ),
-                              ),
-                              const SizedBox(width: 14),
-                              Text(
-                                topic.mastery.round().toString() + '%',
-                                style: TextStyle(color: color, fontWeight: FontWeight.w800),
-                              ),
-                            ],
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(topic.topic, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                      const SizedBox(height: 8),
+                                      LinearProgressIndicator(
+                                        value: topic.mastery / 100,
+                                        minHeight: 7,
+                                        color: color,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        topic.total.toString() + ' questions',
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Text(
+                                  topic.mastery.round().toString() + '%',
+                                  style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(Icons.chevron_right),
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -358,13 +396,15 @@ class PracticeScreen extends StatefulWidget {
 class _PracticeScreenState extends State<PracticeScreen> {
   List<String> topics = const [];
   String? topic;
-  late double sessionSize;
+  late int sessionSize;
+  late TextEditingController sessionSizeController;
   late bool negativeMarking;
 
   @override
   void initState() {
     super.initState();
-    sessionSize = (widget.prefs.getInt('session_size') ?? 15).toDouble();
+    sessionSize = widget.prefs.getInt('session_size') ?? 15;
+    sessionSizeController = TextEditingController(text: sessionSize.toString());
     negativeMarking = widget.prefs.getBool('negative_marking') ?? false;
     AppDatabase.instance.topics().then((value) {
       if (!mounted) return;
@@ -375,12 +415,42 @@ class _PracticeScreenState extends State<PracticeScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    sessionSizeController.dispose();
+    super.dispose();
+  }
+
   Future<void> start(PracticeMode mode) async {
-    await widget.prefs.setInt('session_size', sessionSize.round());
+    final requested = int.tryParse(sessionSizeController.text.trim());
+    if (requested == null || requested < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid number of questions (1 or more).')),
+      );
+      return;
+    }
+
+    if (mode == PracticeMode.topicPractice && topic != null) {
+      final available = await AppDatabase.instance.topicQuestionCount(topic!);
+      if (!mounted) return;
+      if (requested > available) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${topic!} has only $available questions. Enter $available or fewer.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    sessionSize = requested;
+    await widget.prefs.setInt('session_size', sessionSize);
     await widget.prefs.setBool('negative_marking', negativeMarking);
     final questions = await AppDatabase.instance.buildSession(
       mode: mode,
-      sessionSize: sessionSize.round(),
+      sessionSize: sessionSize,
       dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30,
       topic: topic,
     );
@@ -417,15 +487,33 @@ class _PracticeScreenState extends State<PracticeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Session size: ' + sessionSize.round().toString(), style: const TextStyle(fontWeight: FontWeight.w800)),
-                Slider(
-                  value: sessionSize,
-                  min: 10,
-                  max: 20,
-                  divisions: 10,
-                  onChanged: (value) => setState(() => sessionSize = value),
+                const Text(
+                  'Number of questions',
+                  style: TextStyle(fontWeight: FontWeight.w800),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: sessionSizeController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: 'Example: 70',
+                    helperText: 'Enter any number. Topic Practice will use exactly this many when available.',
+                    prefixIcon: const Icon(Icons.format_list_numbered),
+                    filled: true,
+                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    final parsed = int.tryParse(value.trim());
+                    if (parsed != null && parsed > 0) {
+                      sessionSize = parsed;
+                    }
+                  },
+                ),
+                const SizedBox(height: 14),
                 Text(
                   'Topic',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
