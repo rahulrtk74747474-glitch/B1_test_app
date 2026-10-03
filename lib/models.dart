@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:krutidevtounicode/krutidevtounicode.dart';
 
 enum PracticeMode {
@@ -31,6 +33,8 @@ class Question {
     required this.difficulty,
     required this.source,
     this.image,
+    this.images = const [],
+    this.optionImages = const {},
   });
 
   final int id;
@@ -45,6 +49,14 @@ class Question {
   final String difficulty;
   final String source;
   final String? image;
+  final List<String> images;
+  final Map<String, String> optionImages;
+
+  List<String> get imagePaths {
+    if (images.isNotEmpty) return images;
+    if (image != null && image!.trim().isNotEmpty) return [image!];
+    return const [];
+  }
 
   static String _decodeSegments(dynamic raw, dynamic segments) {
     if (segments is! List) return raw?.toString().trim() ?? '';
@@ -88,6 +100,27 @@ class Question {
         key: rawOptionsEnglish[key]?.toString().trim() ?? '',
     };
 
+    final rawImages = json['images'];
+    final images = rawImages is List
+        ? rawImages
+            .map((item) => item?.toString().trim() ?? '')
+            .where((item) => item.isNotEmpty)
+            .toList()
+        : <String>[];
+    final legacyImage = json['image']?.toString().trim();
+    if (images.isEmpty && legacyImage != null && legacyImage.isNotEmpty) {
+      images.add(legacyImage);
+    }
+
+    final rawOptionImages = json['option_images'] is Map
+        ? Map<String, dynamic>.from(json['option_images'] as Map)
+        : const <String, dynamic>{};
+    final optionImages = <String, String>{};
+    for (final key in const ['A', 'B', 'C', 'D']) {
+      final value = rawOptionImages[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) optionImages[key] = value;
+    }
+
     final answer = json['answer'].toString().toUpperCase().trim();
     if (!options.containsKey(answer)) {
       throw FormatException('Question ${json['id']} has invalid answer: $answer');
@@ -107,7 +140,9 @@ class Question {
       explanationEnglish: json['explanation_en']?.toString().trim() ?? '',
       difficulty: json['difficulty']?.toString().trim() ?? 'medium',
       source: json['source']?.toString().trim() ?? '',
-      image: json['image']?.toString(),
+      image: images.isEmpty ? null : images.first,
+      images: images,
+      optionImages: optionImages,
     );
   }
 
@@ -134,7 +169,41 @@ class Question {
         difficulty: (row['difficulty'] as String?) ?? 'medium',
         source: (row['source'] as String?) ?? '',
         image: row['image_path'] as String?,
+        images: _decodeStringList(row['images_json'], fallback: row['image_path'] as String?),
+        optionImages: _decodeStringMap(row['option_images_json']),
       );
+
+  static List<String> _decodeStringList(Object? raw, {String? fallback}) {
+    if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          return decoded
+              .map((item) => item?.toString().trim() ?? '')
+              .where((item) => item.isNotEmpty)
+              .toList();
+        }
+      } catch (_) {}
+    }
+    if (fallback != null && fallback.trim().isNotEmpty) return [fallback];
+    return const [];
+  }
+
+  static Map<String, String> _decodeStringMap(Object? raw) {
+    if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          return {
+            for (final entry in decoded.entries)
+              if (entry.value?.toString().trim().isNotEmpty == true)
+                entry.key.toString(): entry.value.toString(),
+          };
+        }
+      } catch (_) {}
+    }
+    return const {};
+  }
 
   Map<String, Object?> toDb() => {
         'id': id,
@@ -154,7 +223,9 @@ class Question {
         'explanation_en': explanationEnglish,
         'difficulty': difficulty,
         'source': source,
-        'image_path': image,
+        'image_path': imagePaths.isEmpty ? null : imagePaths.first,
+        'images_json': jsonEncode(imagePaths),
+        'option_images_json': jsonEncode(optionImages),
       };
 
   Map<String, dynamic> toJson() => {
@@ -169,7 +240,9 @@ class Question {
         'explanation_en': explanationEnglish,
         'difficulty': difficulty,
         'source': source,
-        if (image != null) 'image': image,
+        if (imagePaths.isNotEmpty) 'images': imagePaths,
+        if (imagePaths.length == 1) 'image': imagePaths.first,
+        if (optionImages.isNotEmpty) 'option_images': optionImages,
       };
 }
 
