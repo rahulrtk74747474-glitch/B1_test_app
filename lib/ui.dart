@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -1031,9 +1030,12 @@ class _QuizScreenState extends State<QuizScreen> {
                   Text('Question #' + question.id.toString(), style: Theme.of(context).textTheme.labelMedium),
                   const SizedBox(height: 10),
                   Text(questionText(), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, height: 1.5)),
-                  if (question.image != null) ...[
+                  if (question.imagePaths.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    QuestionImage(path: question.image!),
+                    for (final imagePath in question.imagePaths) ...[
+                      QuestionImage(path: imagePath),
+                      const SizedBox(height: 10),
+                    ],
                   ],
                   if (question.source.isNotEmpty) ...[
                     const SizedBox(height: 12),
@@ -1048,6 +1050,7 @@ class _QuizScreenState extends State<QuizScreen> {
             OptionButton(
               keyText: option.key,
               text: optionText(option.key),
+              imagePath: question.optionImages[option.key],
               color: feedbackColor(option.key),
               onTap: () => choose(option.key),
             ),
@@ -1401,22 +1404,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> importFiles() async {
     final files = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['json'],
+      allowedExtensions: const ['json', 'zip'],
     );
     if (files.isEmpty || !mounted) return;
     int inserted = 0;
     int skipped = 0;
+    int images = 0;
     try {
       for (final file in files) {
         final bytes = await file.readAsBytes();
-        final outcome = await AppDatabase.instance.importJsonText(utf8.decode(bytes));
+        final outcome = await AppDatabase.instance.importQuestionBankBytes(
+          bytes,
+          fileName: file.name,
+        );
         inserted += outcome.inserted;
         skipped += outcome.skipped;
+        images += outcome.images;
       }
       widget.onDataChanged();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Imported ' + inserted.toString() + '; skipped ' + skipped.toString() + ' duplicate IDs.')),
+          SnackBar(
+            content: Text(
+              'Imported $inserted questions and $images images; skipped $skipped duplicate IDs.',
+            ),
+          ),
         );
       }
     } catch (error) {
@@ -1581,10 +1593,12 @@ class OptionButton extends StatelessWidget {
     required this.text,
     required this.color,
     required this.onTap,
+    this.imagePath,
   });
 
   final String keyText;
   final String text;
+  final String? imagePath;
   final Color? color;
   final VoidCallback onTap;
 
@@ -1602,6 +1616,7 @@ class OptionButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(15),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
                 radius: 18,
@@ -1610,8 +1625,23 @@ class OptionButton extends StatelessWidget {
                 child: Text(keyText, style: const TextStyle(fontWeight: FontWeight.w800)),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600, height: 1.35))),
-              if (color != null) Icon(color == green ? Icons.check_circle : Icons.cancel, color: color),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (text.trim().isNotEmpty)
+                      Text(text, style: const TextStyle(fontWeight: FontWeight.w600, height: 1.35)),
+                    if (imagePath != null && imagePath!.trim().isNotEmpty) ...[
+                      if (text.trim().isNotEmpty) const SizedBox(height: 10),
+                      QuestionImage(path: imagePath!, maxHeight: 220),
+                    ],
+                  ],
+                ),
+              ),
+              if (color != null) ...[
+                const SizedBox(width: 8),
+                Icon(color == green ? Icons.check_circle : Icons.cancel, color: color),
+              ],
             ],
           ),
         ),
@@ -1621,13 +1651,93 @@ class OptionButton extends StatelessWidget {
 }
 
 class QuestionImage extends StatelessWidget {
-  const QuestionImage({super.key, required this.path});
+  const QuestionImage({
+    super.key,
+    required this.path,
+    this.maxHeight = 360,
+  });
+
   final String path;
+  final double maxHeight;
+
+  Widget _image({BoxFit fit = BoxFit.contain}) {
+    if (path.startsWith('assets/')) {
+      return Image.asset(
+        path,
+        fit: fit,
+        errorBuilder: (_, __, ___) => const _ImageLoadError(),
+      );
+    }
+    return Image.file(
+      File(path),
+      fit: fit,
+      errorBuilder: (_, __, ___) => const _ImageLoadError(),
+    );
+  }
+
+  void _openFullScreen(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: const Text('Question image'),
+          ),
+          body: SafeArea(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 6,
+              child: Center(child: _image()),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (path.startsWith('assets/')) return Image.asset(path, fit: BoxFit.contain);
-    return Image.file(File(path), fit: BoxFit.contain, errorBuilder: (_, __, ___) => const SizedBox.shrink());
+    return Semantics(
+      button: true,
+      label: 'Open question image full screen',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openFullScreen(context),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: _image(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageLoadError extends StatelessWidget {
+  const _ImageLoadError();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.broken_image_outlined),
+          SizedBox(width: 8),
+          Flexible(child: Text('Image could not be loaded')),
+        ],
+      ),
+    );
   }
 }
 
