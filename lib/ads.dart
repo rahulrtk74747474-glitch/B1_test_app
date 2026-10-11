@@ -182,7 +182,7 @@ class _QuestionBannerState extends State<QuestionBanner> {
     _loading = true;
     // A 300x250 medium rectangle is less intrusive than a full-screen ad and
     // works within the scrollable result/setup page. Compact phones fall back.
-    final availableWidth = (MediaQuery.sizeOf(context).width - 48).floor().clamp(1, 10000);
+    final availableWidth = (MediaQuery.sizeOf(context).width - 72).floor().clamp(1, 10000);
     final size = widget.large && availableWidth >= 300
         ? AdSize.mediumRectangle
         : await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(availableWidth);
