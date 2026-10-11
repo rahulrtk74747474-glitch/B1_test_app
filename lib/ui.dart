@@ -59,7 +59,12 @@ class _AppShellState extends State<AppShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        onDestinationSelected: (value) => setState(() => index = value),
+        onDestinationSelected: (value) => setState(() {
+          index = value;
+          // Recreate the tab after a quiz saves its latest rating. IndexedStack
+          // otherwise keeps the Review tab's original FutureBuilder snapshot.
+          revision++;
+        }),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.bolt_outlined), selectedIcon: Icon(Icons.bolt), label: 'Practice'),
