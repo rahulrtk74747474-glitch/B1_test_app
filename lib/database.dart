@@ -180,6 +180,41 @@ class AppDatabase {
       await db.insert('app_meta', {'key': 'preloaded_chunk', 'value': '$i'},
         conflictAlgorithm: ConflictAlgorithm.replace);
     }
+
+    // Additional 1–6500 reference PDF questions supplied separately.
+    // Keep an independent checkpoint so existing installs can upgrade safely.
+    // IDs are allocated to a separate namespace (120000000+) to prevent
+    // overwriting progress for previously installed question banks.
+    final importedMarker = await db.query('app_meta', where: 'key = ?',
+      whereArgs: ['reference_chunk'], limit: 1);
+    final importedUntil = importedMarker.isEmpty ? 0 :
+      int.tryParse(importedMarker.first['value'] as String) ?? 0;
+    for (var i = importedUntil + 1; i <= 32; i++) {
+      final path = 'assets/additional/reference_${i.toString().padLeft(3, '0')}.json';
+      final decoded = jsonDecode(await rootBundle.loadString(path));
+      if (decoded is! List) throw FormatException('Expected question list: $path');
+      final topicAliases = <String, String>{
+        'BNS 2023': 'BNS',
+        'BNSS 2023': 'BNSS',
+        'BSA 2023': 'BSA',
+        'PPR - Punjab Police Rules': 'Punjab Police Rules',
+        'Human Behaviour / Psychology': 'Human Behaviour & Psychology',
+        'Crime Scene / Investigation / Physical Evidence': 'Scene of Crime',
+        'Fingerprint': 'Police Science & Fingerprints',
+        'Traffic / Road Safety': 'Traffic',
+        'LSL / Special Acts': 'Local & Special Laws',
+        'Forensic / Medico-Legal / First Aid': 'Forensic Science & Medicine',
+      };
+      final normalized = decoded.map((item) {
+        final question = Map<String, dynamic>.from(item as Map);
+        final originalTopic = question['topic']?.toString() ?? '';
+        question['topic'] = topicAliases[originalTopic] ?? originalTopic;
+        return question;
+      }).toList();
+      await _importRows(normalized);
+      await db.insert('app_meta', {'key': 'reference_chunk', 'value': '$i'},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    }
   }
 
   Future<void> seedSampleIfEmpty() async {
