@@ -2,7 +2,7 @@ name: Flutter Android CI
 
 on:
   push:
-    branches: [main, feature/police-b1-balanced-exams]
+    branches: [main, feature/police-b1-balanced-exams, feature/playstore-admob-release]
   pull_request:
 
 jobs:
@@ -22,12 +22,7 @@ jobs:
         run: |
           python3 -m pip install --user Pillow
           python3 tools/generate_icon.py
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('android/app/src/main/AndroidManifest.xml')
-          text = p.read_text().replace('android:label="b1_test_app"', 'android:label="Police B1 Test"')
-          p.write_text(text)
-          PY
+          python3 tools/configure_android.py
       - run: flutter pub get
       - name: Apply launcher icon
         run: dart run flutter_launcher_icons
