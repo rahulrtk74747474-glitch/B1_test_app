@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database.dart';
+import 'ads.dart';
 import 'models.dart';
 import 'police_exam_ui.dart';
 
@@ -488,6 +489,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
         Text('Practice', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 6),
         const Text('Choose a drill. Everything below works from the local SQLite database.'),
+        const SizedBox(height: 8),
+        const QuestionBanner(),
         const SizedBox(height: 18),
         Card(
           child: Padding(
@@ -951,6 +954,8 @@ class _QuizScreenState extends State<QuizScreen> {
       ),
     );
     if (mounted) Navigator.pop(context);
+    // An interstitial is only offered once the learner has seen their score.
+    await AdsManager.instance.maybeShowAfterResult();
   }
 
   Future<void> editNote() async {
@@ -1004,6 +1009,7 @@ class _QuizScreenState extends State<QuizScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          const QuestionBanner(),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<QuestionLanguage>(
@@ -1553,6 +1559,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 18),
+        const SectionTitle('Advertising & privacy'),
+        Card(child: Column(children: [
+          const ListTile(
+            leading: Icon(Icons.ad_units_outlined),
+            title: Text('Advertisements'),
+            subtitle: Text('Ads support this free study app. Study works offline, and ads are only requested when consent permits.'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('Manage advertising privacy'),
+            subtitle: const Text('Review your choices where available'),
+            onTap: () async {
+              if (await AdsManager.instance.privacyOptionsRequired()) {
+                await AdsManager.instance.openPrivacyOptions();
+              } else if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Additional privacy choices are not required for this device.'),
+                ));
+              }
+            },
+          ),
+        ])),
         const SizedBox(height: 18),
         const SectionTitle('Notifications'),
         Card(
