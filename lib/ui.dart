@@ -770,9 +770,12 @@ class _QuizScreenState extends State<QuizScreen> {
   String? selected;
   bool answered = false;
   bool bookmarked = false;
-  int correctAnswers = 0;
-  int wrongAnswers = 0;
   late DateTime started;
+  late DateTime sessionStarted;
+  final List<PracticeAttempt> recordedAttempts = [];
+  bool recordingAnswer = false;
+  bool finishing = false;
+  bool finishPending = false;
   late List<Question> queue;
   late List<MapEntry<String, String>> options;
   
@@ -785,6 +788,7 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void initState() {
     super.initState();
+    sessionStarted = DateTime.now();
     queue = [...widget.questions];
     if (isMock) {
       secondsLeft = queue.length * 60;
@@ -824,77 +828,95 @@ class _QuizScreenState extends State<QuizScreen> {
       ? question.explanation : 'Correct answer: ${question.answer}';
 
   void choose(String key) {
-    if (answered) return;
-    final correct = key == question.answer;
+    if (answered || finishing) return;
     setState(() {
       selected = key;
       answered = true;
-      if (correct) {
-        correctAnswers++;
-      } else {
-        wrongAnswers++;
-      }
     });
   }
 
   Future<void> record(ReviewRating rating) async {
-    if (!answered || selected == null) return;
+    if (!answered || selected == null || recordingAnswer || finishing) return;
+    recordingAnswer = true;
     final answeredQuestion = question;
-    await AppDatabase.instance.recordAnswer(
-      question: answeredQuestion,
-      selectedAnswer: selected!,
-      correct: selected == answeredQuestion.answer,
-      rating: rating,
-      timeMs: DateTime.now().difference(started).inMilliseconds,
-      mode: widget.mode,
-    );
-    if (!isMock) {
-      final due = await AppDatabase.instance.dueRevisionQuestions(limit: 1);
-      if (due.isNotEmpty) {
-        final dueQuestion = due.first;
-        for (var i = index + 1; i < queue.length; i++) {
-          if (queue[i].id == dueQuestion.id) {
-            queue.removeAt(i);
-            break;
-          }
-        }
-        queue.insert(index + 1, dueQuestion);
+    final answer = selected!;
+    try {
+      await AppDatabase.instance.recordAnswer(
+        question: answeredQuestion,
+        selectedAnswer: answer,
+        correct: answer == answeredQuestion.answer,
+        rating: rating,
+        timeMs: DateTime.now().difference(started).inMilliseconds,
+        mode: widget.mode,
+      );
+      recordedAttempts.add(PracticeAttempt(question: answeredQuestion, answer: answer));
+      recordingAnswer = false;
+      if (!mounted) return;
+      // The chosen number is exact: review scheduling affects future tests,
+      // not the current queue length.
+      if (finishPending || index == queue.length - 1) {
+        finishPending = false;
+        await finish();
+      } else {
+        setState(() => index++);
+        await prepare();
       }
-    }
-    if (!mounted) return;
-    if (index == queue.length - 1) {
-      await finish();
-    } else {
-      setState(() => index++);
-      await prepare();
+    } catch (error) {
+      recordingAnswer = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save answer: $error')));
+      }
     }
   }
 
   Future<void> finish() async {
+    if (finishing || !mounted) return;
+    if (recordingAnswer) {
+      finishPending = true;
+      return;
+    }
+    finishing = true;
     timer?.cancel();
-    if (!mounted) return;
-    final score = correctAnswers - (widget.negativeMarking ? wrongAnswers * .25 : 0);
-    final attempted = correctAnswers + wrongAnswers;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Session complete'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Correct: ' + correctAnswers.toString()),
-            Text('Wrong: ' + wrongAnswers.toString()),
-            Text('Score: ' + score.toStringAsFixed(2) + ' / ' + attempted.toString()),
-          ],
-        ),
-        actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
-      ),
-    );
-    if (mounted) Navigator.pop(context);
-    // An interstitial is only offered once the learner has seen their score.
-    await AdsManager.instance.maybeShowAfterResult();
+    try {
+      // If time expires after a choice was tapped but before Next,
+      // include that choice both in local progress and exam results.
+      if (answered && selected != null &&
+          (recordedAttempts.isEmpty ||
+           recordedAttempts.last.question.id != question.id)) {
+        final current = question;
+        final answer = selected!;
+        await AppDatabase.instance.recordAnswer(
+          question: current, selectedAnswer: answer,
+          correct: answer == current.answer,
+          rating: answer == current.answer ? ReviewRating.good : ReviewRating.again,
+          timeMs: DateTime.now().difference(started).inMilliseconds,
+          mode: widget.mode,
+        );
+        recordedAttempts.add(PracticeAttempt(question: current, answer: answer));
+      }
+      final saved = await PoliceExamRepository.instance.savePracticeSession(
+        plannedQuestions: widget.questions,
+        attempts: recordedAttempts,
+        started: sessionStarted,
+        durationMs: DateTime.now().difference(sessionStarted).inMilliseconds,
+        negativeMarking: widget.negativeMarking,
+      );
+      if (!mounted) return;
+      await Navigator.push(context, MaterialPageRoute(
+        builder: (_) => PoliceExamResultScreen(record: saved),
+      ));
+      if (!mounted) return;
+      Navigator.pop(context);
+      // A frequency-capped interstitial may load after the result is dismissed.
+      await AdsManager.instance.maybeShowAfterResult();
+    } catch (error) {
+      finishing = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to save test result: $error')));
+      }
+    }
   }
 
   Future<void> editNote() async {
