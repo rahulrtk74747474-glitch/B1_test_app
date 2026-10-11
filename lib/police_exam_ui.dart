@@ -74,7 +74,7 @@ class _PoliceExamHubState extends State<PoliceExamHub> {
       const SizedBox(height: 8),
       const Text('Choose the exact number of questions. Subjects receive an equal share wherever enough questions exist; shortages are redistributed. Answers stay hidden until submission.'),
       const SizedBox(height: 12),
-      const QuestionBanner(),
+      const QuestionBanner(large: true),
       const SizedBox(height: 16),
       FutureBuilder<Map<String, int>>(
         future: inventory,
@@ -302,10 +302,13 @@ class PoliceSubjectBar extends StatelessWidget {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(child: Text(result.topic, style: const TextStyle(fontWeight: FontWeight.w600))),
-        Text('${result.correct}/${result.total} • ${result.accuracy.toStringAsFixed(1)}%'),
+        Text('${result.correct}/${result.attempted} correct • ${result.accuracy.toStringAsFixed(1)}%'),
       ]),
       const SizedBox(height: 5),
-      LinearProgressIndicator(value: result.accuracy / 100, minHeight: 7, borderRadius: BorderRadius.circular(12)),
+      LinearProgressIndicator(value: result.accuracy / 100, minHeight: 7,
+        borderRadius: BorderRadius.circular(12)),
+      Text('${result.attempted} attempted • ${result.skipped} skipped • ${result.wrong} wrong',
+        style: Theme.of(context).textTheme.bodySmall),
       if (result.improvement != null) Text(
         '${result.improvement! >= 0 ? '+' : ''}${result.improvement!.toStringAsFixed(1)} percentage points versus earlier tests',
         style: Theme.of(context).textTheme.bodySmall),
@@ -319,36 +322,104 @@ class PoliceExamResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('Exam #${record.id} result')),
+    appBar: AppBar(title: const Text('Test Result')),
     body: FutureBuilder<List<PoliceSubjectResult>>(
       future: PoliceExamRepository.instance.subjectResults(record.id),
       builder: (_, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final results = [...snapshot.data!]..sort((a, b) => a.accuracy.compareTo(b.accuracy));
-        return ListView(padding: const EdgeInsets.all(18), children: [
-          Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
-            const Icon(Icons.emoji_events_outlined, size: 44),
-            Text('${record.score.toStringAsFixed(2)} / ${record.total}',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-            Text('Correct ${record.correct} • Wrong ${record.wrong} • Skipped ${record.skipped}'),
-            Text('Accuracy ${record.accuracy.toStringAsFixed(1)}% of attempted questions'),
-            Text('Duration ${Duration(milliseconds: record.durationMs).inMinutes} minutes'),
-          ]))),
-          const SizedBox(height: 20),
-          Text('Subject-wise performance', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          for (final result in results) PoliceSubjectBar(result: result),
-          const SizedBox(height: 18),
-          if (results.isNotEmpty) Card(child: Padding(padding: const EdgeInsets.all(16),
-            child: Text('Revision priority: ${results.take(3).map((e) => e.topic).join(', ')}. Focus on the subjects with the lowest scores, then take another test to measure improvement.'))),
-          const SizedBox(height: 12),
-          FilledButton.icon(onPressed: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => PoliceExamAnswerReview(examId: record.id))),
-            icon: const Icon(Icons.fact_check_outlined), label: const Text('Review questions and answers')),
-        ]);
+        if (snapshot.hasError) {
+          return Center(child: Padding(padding: const EdgeInsets.all(20),
+            child: Text('Unable to load subject results: ${snapshot.error}')));
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final results = [...snapshot.data!]
+          ..sort((a, b) => a.accuracy.compareTo(b.accuracy));
+        final attemptedRate = record.accuracy;
+        final completionRate = record.total == 0 ? 0.0 :
+          record.attempted * 100 / record.total;
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 32),
+          children: [
+            Text('Test completed', style: Theme.of(context).textTheme.headlineSmall
+              ?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            // Rectangular ad appears only when AdMob SDK and consent allow it.
+            // Scrolling, result access and leaving this page never depend on it.
+            const QuestionBanner(large: true),
+            const SizedBox(height: 14),
+            Card(child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(children: [
+                const Icon(Icons.emoji_events_outlined, size: 42),
+                const SizedBox(height: 8),
+                Text('${record.score.toStringAsFixed(2)} / ${record.total}',
+                  style: Theme.of(context).textTheme.headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.w800)),
+                const Text('Exam score', textAlign: TextAlign.center),
+                const SizedBox(height: 14),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                  _ResultMetric(value: '${record.correct}', label: 'Correct', icon: Icons.check_circle_outline),
+                  _ResultMetric(value: '${record.wrong}', label: 'Wrong', icon: Icons.cancel_outlined),
+                  _ResultMetric(value: '${record.skipped}', label: 'Skipped', icon: Icons.skip_next),
+                ]),
+                const SizedBox(height: 20),
+                Text('Answer accuracy: ${attemptedRate.toStringAsFixed(1)}% of attempted'),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(value: attemptedRate / 100, minHeight: 8,
+                  borderRadius: BorderRadius.circular(12)),
+                const SizedBox(height: 12),
+                Text('Completion: ${completionRate.toStringAsFixed(1)}% (${record.attempted}/${record.total})'),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(value: completionRate / 100, minHeight: 8,
+                  borderRadius: BorderRadius.circular(12)),
+                const SizedBox(height: 10),
+                Text('Duration: ${Duration(milliseconds: record.durationMs).inMinutes} min'
+                  ' ${(Duration(milliseconds: record.durationMs).inSeconds % 60)} sec'),
+              ]),
+            )),
+            const SizedBox(height: 18),
+            Text('Subject-wise performance', style: Theme.of(context).textTheme.titleLarge
+              ?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            if (results.isEmpty) const Text('No questions were attempted.'),
+            for (final result in results) PoliceSubjectBar(result: result),
+            const SizedBox(height: 14),
+            if (results.where((r) => r.attempted > 0).isNotEmpty)
+              Card(child: Padding(padding: const EdgeInsets.all(16),
+                child: Text('Focus next on: ${results.where((r) => r.attempted > 0).take(3).map((r) => r.topic).join(', ')}. '
+                  'These were your lowest scoring practiced subjects.'))),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => PoliceExamAnswerReview(examId: record.id))),
+              icon: const Icon(Icons.fact_check_outlined),
+              label: const Text('Review questions and answers'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.done_rounded),
+              label: const Text('Done — return to studying')),
+          ],
+        );
       },
     ),
   );
+}
+
+class _ResultMetric extends StatelessWidget {
+  const _ResultMetric({required this.value, required this.label, required this.icon});
+  final String value;
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
+    Text(value, style: Theme.of(context).textTheme.titleLarge
+      ?.copyWith(fontWeight: FontWeight.w800)),
+    Text(label, style: Theme.of(context).textTheme.bodySmall),
+  ]);
 }
 
 class PoliceExamAnswerReview extends StatelessWidget {
