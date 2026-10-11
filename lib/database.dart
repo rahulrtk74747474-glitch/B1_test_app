@@ -172,7 +172,7 @@ class AppDatabase {
     final marker = await db.query('app_meta', where: 'key = ?',
       whereArgs: ['preloaded_chunk'], limit: 1);
     final last = marker.isEmpty ? 0 : int.tryParse(marker.first['value'] as String) ?? 0;
-    for (var i = last + 1; i <= 45; i++) {
+    for (var i = last + 1; i <= 61; i++) {
       final path = 'assets/preloaded/bank_${i.toString().padLeft(3, '0')}.json';
       final decoded = jsonDecode(await rootBundle.loadString(path));
       if (decoded is! List) throw FormatException('Expected question list: $path');
