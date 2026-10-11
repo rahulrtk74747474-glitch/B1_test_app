@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database.dart';
 import 'ads.dart';
+import 'test_count_dialog.dart';
+import 'police_exam_repository.dart';
 import 'models.dart';
 import 'police_exam_ui.dart';
 
@@ -217,58 +219,59 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> startReview() async {
+    final eligible = await AppDatabase.instance.availableForMode(
+      PracticeMode.dailyReview,
+      dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30,
+    );
+    if (!mounted) return;
+    if (eligible < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nothing is due right now.')));
+      return;
+    }
+    final chosen = await showQuestionCountDialog(context,
+      title: 'Daily Review', available: eligible,
+      preferred: widget.prefs.getInt('session_size') ?? 15,
+      description: '$eligible questions currently available for today\'s review');
+    if (chosen == null || !mounted) return;
+    await widget.prefs.setInt('session_size', chosen);
     final questions = await AppDatabase.instance.buildSession(
       mode: PracticeMode.dailyReview,
-      sessionSize: widget.prefs.getInt('session_size') ?? 15,
+      sessionSize: chosen,
       dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30,
     );
     if (!mounted) return;
     if (questions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nothing is due right now.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No review questions are currently available.')));
       return;
     }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => QuizScreen(
-          questions: questions,
-          mode: PracticeMode.dailyReview,
-          prefs: widget.prefs,
-        ),
-      ),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizScreen(
+      questions: questions, mode: PracticeMode.dailyReview, prefs: widget.prefs)));
     if (mounted) setState(load);
   }
 
   Future<void> startTopicPractice(TopicSummary selectedTopic) async {
-    final requested = widget.prefs.getInt('session_size') ?? 15;
-    final sessionSize = requested < 1
-        ? 1
-        : (requested > selectedTopic.total ? selectedTopic.total : requested);
-
+    final chosen = await showQuestionCountDialog(context,
+      title: selectedTopic.topic, available: selectedTopic.total,
+      preferred: widget.prefs.getInt('session_size') ?? 15,
+      description: 'Choose exactly how many ${selectedTopic.topic} questions to attempt.');
+    if (chosen == null || !mounted) return;
+    await widget.prefs.setInt('session_size', chosen);
     final questions = await AppDatabase.instance.buildSession(
       mode: PracticeMode.topicPractice,
-      sessionSize: sessionSize,
+      sessionSize: chosen,
       dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30,
       topic: selectedTopic.topic,
     );
     if (!mounted) return;
     if (questions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No questions are available for ${selectedTopic.topic}.')),
-      );
+        SnackBar(content: Text('No questions are available for ${selectedTopic.topic}.')));
       return;
     }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => QuizScreen(
-          questions: questions,
-          mode: PracticeMode.topicPractice,
-          prefs: widget.prefs,
-        ),
-      ),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizScreen(
+      questions: questions, mode: PracticeMode.topicPractice, prefs: widget.prefs)));
     if (mounted) setState(load);
   }
 
@@ -413,14 +416,12 @@ class _PracticeScreenState extends State<PracticeScreen> {
   List<String> topics = const [];
   String? topic;
   late int sessionSize;
-  late TextEditingController sessionSizeController;
   late bool negativeMarking;
 
   @override
   void initState() {
     super.initState();
     sessionSize = widget.prefs.getInt('session_size') ?? 15;
-    sessionSizeController = TextEditingController(text: sessionSize.toString());
     negativeMarking = widget.prefs.getBool('negative_marking') ?? false;
     AppDatabase.instance.topics().then((value) {
       if (!mounted) return;
@@ -431,61 +432,49 @@ class _PracticeScreenState extends State<PracticeScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    sessionSizeController.dispose();
-    super.dispose();
-  }
-
   Future<void> start(PracticeMode mode) async {
-    final requested = int.tryParse(sessionSizeController.text.trim());
-    if (requested == null || requested < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid number of questions (1 or more).')),
-      );
+    final selectedTopic = mode == PracticeMode.topicPractice ? topic : null;
+    final available = await AppDatabase.instance.availableForMode(mode,
+      topic: selectedTopic,
+      dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30);
+    if (!mounted) return;
+    if (available < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('No questions match this practice mode yet.')));
       return;
     }
-
-    if (mode == PracticeMode.topicPractice && topic != null) {
-      final available = await AppDatabase.instance.topicQuestionCount(topic!);
-      if (!mounted) return;
-      if (requested > available) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${topic!} has only $available questions. Enter $available or fewer.',
-            ),
-          ),
-        );
-        return;
-      }
-    }
-
-    sessionSize = requested;
+    final title = switch (mode) {
+      PracticeMode.topicPractice => selectedTopic ?? 'Topic Practice',
+      PracticeMode.dailyReview => 'Daily Review',
+      PracticeMode.wrongAnswers => 'Wrong-Answers Practice',
+      PracticeMode.bookmarked => 'Bookmarked Questions',
+      PracticeMode.mockExam => 'Timed Mock Exam',
+      PracticeMode.random50 => 'Random Practice',
+      _ => 'Practice',
+    };
+    final chosen = await showQuestionCountDialog(context,
+      title: title, available: available, preferred: sessionSize,
+      description: '$available questions available for this test');
+    if (chosen == null || !mounted) return;
+    sessionSize = chosen;
     await widget.prefs.setInt('session_size', sessionSize);
     await widget.prefs.setBool('negative_marking', negativeMarking);
     final questions = await AppDatabase.instance.buildSession(
       mode: mode,
-      sessionSize: sessionSize,
+      sessionSize: chosen,
       dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30,
-      topic: topic,
+      topic: selectedTopic,
     );
     if (!mounted) return;
     if (questions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No questions match this practice mode yet.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No questions match this practice mode yet.')));
       return;
     }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => QuizScreen(
-          questions: questions,
-          mode: mode,
-          prefs: widget.prefs,
-          negativeMarking: mode == PracticeMode.mockExam && negativeMarking,
-        ),
-      ),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizScreen(
+      questions: questions, mode: mode, prefs: widget.prefs,
+      negativeMarking: mode == PracticeMode.mockExam && negativeMarking)));
+    if (mounted) setState(() {});
   }
 
   @override
@@ -505,32 +494,10 @@ class _PracticeScreenState extends State<PracticeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Number of questions',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: sessionSizeController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    hintText: 'Example: 70',
-                    helperText: 'Enter any number. Topic Practice will use exactly this many when available.',
-                    prefixIcon: const Icon(Icons.format_list_numbered),
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  onChanged: (value) {
-                    final parsed = int.tryParse(value.trim());
-                    if (parsed != null && parsed > 0) {
-                      sessionSize = parsed;
-                    }
-                  },
-                ),
+                const Text('Choose a subject for Topic Practice',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                const Text('Tap a practice mode below to choose the number of questions.'),
                 const SizedBox(height: 14),
                 Text(
                   'Topic',
@@ -609,7 +576,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
         ModeTile(icon: Icons.error_outline, title: 'Wrong-Answers Only', subtitle: 'Questions you most recently missed', color: amber, onTap: () => start(PracticeMode.wrongAnswers)),
         ModeTile(icon: Icons.star_border, title: 'Bookmarked', subtitle: 'Only your saved questions', onTap: () => start(PracticeMode.bookmarked)),
         ModeTile(icon: Icons.timer_outlined, title: 'Mock Exam', subtitle: 'Timed at 60 seconds per question', onTap: () => start(PracticeMode.mockExam)),
-        ModeTile(icon: Icons.shuffle, title: 'Random 50', subtitle: '50 random questions from the bank', onTap: () => start(PracticeMode.random50)),
+        ModeTile(icon: Icons.shuffle, title: 'Random Practice', subtitle: 'Choose any number of random questions', onTap: () => start(PracticeMode.random50)),
          ModeTile(icon: Icons.shield_outlined, title: 'Balanced Random B1 Exam', subtitle: 'Set any question count • equal subject allocation • saved results', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PoliceExamHub()))),
       ],
     );
@@ -640,30 +607,34 @@ class _RevisionScreenState extends State<RevisionScreen> {
   }
 
   Future<void> start(String bucket) async {
-    final questions = await AppDatabase.instance.revisionQuestions(bucket, limit: 200);
-    if (!mounted) return;
-    if (questions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No questions are in this revision list yet.')),
-      );
-      return;
-    }
     final mode = switch (bucket) {
       'again' => PracticeMode.revisionAgain,
       'hard' => PracticeMode.revisionHard,
       'good' => PracticeMode.revisionGood,
       _ => PracticeMode.revisionAll,
     };
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => QuizScreen(
-          questions: questions,
-          mode: mode,
-          prefs: widget.prefs,
-        ),
-      ),
-    );
+    final eligible = await AppDatabase.instance.availableForMode(mode);
+    if (!mounted) return;
+    if (eligible < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No questions are in this revision list yet.')));
+      return;
+    }
+    final chosen = await showQuestionCountDialog(context,
+      title: bucket == 'all' ? 'All Revision Questions' : '$bucket Revision',
+      available: eligible, preferred: widget.prefs.getInt('session_size') ?? 15,
+      description: '$eligible saved questions are currently in this list');
+    if (chosen == null || !mounted) return;
+    await widget.prefs.setInt('session_size', chosen);
+    final questions = await AppDatabase.instance.revisionQuestions(bucket, limit: chosen);
+    if (!mounted) return;
+    if (questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No questions are in this revision list yet.')));
+      return;
+    }
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizScreen(
+      questions: questions, mode: mode, prefs: widget.prefs)));
     if (mounted) await refresh();
   }
 
