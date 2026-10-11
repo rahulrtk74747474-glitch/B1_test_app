@@ -337,7 +337,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 for (final topic in data.topics) ...[
                   Builder(
                     builder: (context) {
-                      final color = topic.mastery >= 50 ? green : amber;
+                      final color = topic.coverage >= 50 ? green : amber;
                       return Card(
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
@@ -359,14 +359,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                       Text(topic.topic, style: const TextStyle(fontWeight: FontWeight.w800)),
                                       const SizedBox(height: 8),
                                       LinearProgressIndicator(
-                                        value: topic.mastery / 100,
+                                        value: topic.coverage / 100,
                                         minHeight: 7,
                                         color: color,
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
-                                        topic.total.toString() + ' questions',
+                                        '${topic.studied} of ${topic.total} studied',
                                         style: Theme.of(context).textTheme.bodySmall,
                                       ),
                                     ],
@@ -374,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(width: 14),
                                 Text(
-                                  topic.mastery.round().toString() + '%',
+                                  topic.coverage.toStringAsFixed(1) + '%',
                                   style: TextStyle(color: color, fontWeight: FontWeight.w800),
                                 ),
                                 const SizedBox(width: 6),
@@ -799,7 +799,7 @@ class _QuizScreenState extends State<QuizScreen> {
   late DateTime started;
   late List<Question> queue;
   late List<MapEntry<String, String>> options;
-  late QuestionLanguage language;
+  
   Timer? timer;
   int? secondsLeft;
 
@@ -810,11 +810,6 @@ class _QuizScreenState extends State<QuizScreen> {
   void initState() {
     super.initState();
     queue = [...widget.questions];
-    language = switch (widget.prefs.getString('question_language')) {
-      'english' => QuestionLanguage.english,
-      'both' => QuestionLanguage.both,
-      _ => QuestionLanguage.hindi,
-    };
     if (isMock) {
       secondsLeft = queue.length * 60;
       timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -847,45 +842,10 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
 
-  String questionText() {
-    final hi = question.question;
-    final en = question.questionEnglish;
-    return switch (language) {
-      QuestionLanguage.hindi => hi,
-      QuestionLanguage.english => en.isEmpty ? hi : en,
-      QuestionLanguage.both => en.isEmpty ? hi : '$hi\n\n$en',
-    };
-  }
-
-  String optionText(String key) {
-    final hi = question.options[key] ?? '';
-    final en = question.optionsEnglish[key] ?? '';
-    return switch (language) {
-      QuestionLanguage.hindi => hi,
-      QuestionLanguage.english => en.isEmpty ? hi : en,
-      QuestionLanguage.both => en.isEmpty ? hi : '$hi\n$en',
-    };
-  }
-
-  String explanationText() {
-    final hi = question.explanation;
-    final en = question.explanationEnglish;
-    final fallback = 'Correct answer: ' + question.answer;
-    return switch (language) {
-      QuestionLanguage.hindi => hi.isEmpty ? fallback : hi,
-      QuestionLanguage.english => en.isEmpty ? (hi.isEmpty ? fallback : hi) : en,
-      QuestionLanguage.both => [
-          if (hi.isNotEmpty) hi,
-          if (en.isNotEmpty) en,
-          if (hi.isEmpty && en.isEmpty) fallback,
-        ].join('\n\n'),
-    };
-  }
-
-  Future<void> setLanguage(QuestionLanguage value) async {
-    setState(() => language = value);
-    await widget.prefs.setString('question_language', value.name);
-  }
+  String questionText() => question.question;
+  String optionText(String key) => question.options[key] ?? '';
+  String explanationText() => question.explanation.isNotEmpty
+      ? question.explanation : 'Correct answer: ${question.answer}';
 
   void choose(String key) {
     if (answered) return;
@@ -1013,18 +973,7 @@ class _QuizScreenState extends State<QuizScreen> {
           ),
           const SizedBox(height: 12),
           const QuestionBanner(),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SegmentedButton<QuestionLanguage>(
-              segments: const [
-                ButtonSegment(value: QuestionLanguage.hindi, label: Text('हिंदी')),
-                ButtonSegment(value: QuestionLanguage.english, label: Text('English')),
-                ButtonSegment(value: QuestionLanguage.both, label: Text('Both')),
-              ],
-              selected: {language},
-              onSelectionChanged: (value) => setLanguage(value.first),
-            ),
-          ),
+          // Question bank contains Hindi originals; do not offer unavailable translations.
           const SizedBox(height: 14),
           Card(
             child: Padding(
@@ -1056,10 +1005,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       const SizedBox(height: 10),
                     ],
                   ],
-                  if (question.source.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(question.source, style: Theme.of(context).textTheme.bodySmall),
-                  ],
+
                 ],
               ),
             ),
@@ -1104,17 +1050,35 @@ class _QuizScreenState extends State<QuizScreen> {
                 label: const Text('Next'),
               )
             else
-              Row(
-                children: [
-                  Expanded(child: OutlinedButton(onPressed: () => record(ReviewRating.again), child: const Text('Again'))),
-                  const SizedBox(width: 6),
-                  Expanded(child: OutlinedButton(onPressed: () => record(ReviewRating.hard), child: const Text('Hard'))),
-                  const SizedBox(width: 6),
-                  Expanded(child: FilledButton.tonal(onPressed: () => record(ReviewRating.good), child: const Text('Good'))),
-                  const SizedBox(width: 6),
-                  Expanded(child: FilledButton(onPressed: () => record(ReviewRating.easy), child: const Text('Easy'))),
-                ],
-              ),
+              Column(children: [
+                Row(children: [
+                  Expanded(child: SizedBox(height: 50, child: OutlinedButton.icon(
+                    onPressed: () => record(ReviewRating.again),
+                    icon: const Icon(Icons.replay_rounded, size: 19),
+                    label: const Text('Again', maxLines: 1),
+                  ))),
+                  const SizedBox(width: 12),
+                  Expanded(child: SizedBox(height: 50, child: OutlinedButton.icon(
+                    onPressed: () => record(ReviewRating.hard),
+                    icon: const Icon(Icons.fitness_center_rounded, size: 19),
+                    label: const Text('Hard', maxLines: 1),
+                  ))),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: SizedBox(height: 50, child: FilledButton.tonalIcon(
+                    onPressed: () => record(ReviewRating.good),
+                    icon: const Icon(Icons.check_circle_outline_rounded, size: 19),
+                    label: const Text('Good', maxLines: 1),
+                  ))),
+                  const SizedBox(width: 12),
+                  Expanded(child: SizedBox(height: 50, child: FilledButton.icon(
+                    onPressed: () => record(ReviewRating.easy),
+                    icon: const Icon(Icons.bolt_rounded, size: 19),
+                    label: const Text('Easy', maxLines: 1),
+                  ))),
+                ]),
+              ]),
           ],
         ],
       ),
@@ -1406,19 +1370,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool reminder;
   late bool shuffle;
   late double newLimit;
-  late QuestionLanguage questionLanguage;
-
+  
   @override
   void initState() {
     super.initState();
     reminder = widget.prefs.getBool('daily_reminder') ?? true;
     shuffle = widget.prefs.getBool('shuffle_options') ?? false;
     newLimit = (widget.prefs.getInt('daily_new_limit') ?? 30).toDouble();
-    questionLanguage = switch (widget.prefs.getString('question_language')) {
-      'english' => QuestionLanguage.english,
-      'both' => QuestionLanguage.both,
-      _ => QuestionLanguage.hindi,
-    };
   }
 
   Future<void> importFiles() async {
@@ -1522,24 +1480,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Card(
           child: Column(
             children: [
-              ListTile(
-                title: const Text('Question language'),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: SegmentedButton<QuestionLanguage>(
-                    segments: const [
-                      ButtonSegment(value: QuestionLanguage.hindi, label: Text('हिंदी')),
-                      ButtonSegment(value: QuestionLanguage.english, label: Text('English')),
-                      ButtonSegment(value: QuestionLanguage.both, label: Text('Both')),
-                    ],
-                    selected: {questionLanguage},
-                    onSelectionChanged: (value) async {
-                      setState(() => questionLanguage = value.first);
-                      await widget.prefs.setString('question_language', value.first.name);
-                    },
-                  ),
-                ),
-              ),
               SwitchListTile(
                 title: const Text('Shuffle option order'),
                 subtitle: const Text('Original question number stays visible'),
