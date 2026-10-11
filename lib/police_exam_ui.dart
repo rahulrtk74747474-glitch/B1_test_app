@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -251,11 +252,19 @@ class _PoliceBalancedExamScreenState extends State<PoliceBalancedExamScreen> {
         Text(q.question, style: Theme.of(context).textTheme.titleLarge),
         if (q.questionEnglish.isNotEmpty) Padding(
           padding: const EdgeInsets.only(top: 8), child: Text(q.questionEnglish)),
+        for (final imagePath in q.imagePaths) Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: PoliceExamImage(path: imagePath)),
         const SizedBox(height: 20),
         for (final key in const ['A', 'B', 'C', 'D'])
           Card(child: RadioListTile<String>(
             value: key, groupValue: answers[q.id],
-            title: Text('$key. ${q.options[key] ?? ''}'),
+            title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('$key. ${q.options[key] ?? ''}'),
+              if (q.optionImages[key] != null) Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: PoliceExamImage(path: q.optionImages[key]!)),
+            ]),
             onChanged: saving ? null : (v) => setState(() {
               if (v != null) answers[q.id] = v;
             }),
@@ -369,6 +378,35 @@ class PoliceExamAnswerReview extends StatelessWidget {
           },
         );
       },
+    ),
+  );
+}
+
+/// Preserve zoomable image-based questions in the balanced exam flow.
+class PoliceExamImage extends StatelessWidget {
+  const PoliceExamImage({super.key, required this.path});
+  final String path;
+
+  Widget preview({bool full = false}) {
+    final image = path.startsWith('assets/')
+        ? Image.asset(path, fit: BoxFit.contain)
+        : Image.file(File(path), fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const Text('Image unavailable'));
+    return full ? InteractiveViewer(minScale: .6, maxScale: 5, child: image) : image;
+  }
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: () => showDialog<void>(context: context, builder: (dialog) =>
+      Dialog(child: Stack(children: [
+        SizedBox(height: MediaQuery.sizeOf(context).height * .65,
+          width: double.infinity, child: preview(full: true)),
+        Positioned(right: 0, top: 0, child: IconButton(
+          icon: const Icon(Icons.close), onPressed: () => Navigator.pop(dialog))),
+      ]))),
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 260),
+      child: preview(),
     ),
   );
 }
