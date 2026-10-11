@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database.dart';
 import 'models.dart';
+import 'police_exam_ui.dart';
 
 const green = Color(0xFF22A06B);
 const amber = Color(0xFFF59E0B);
@@ -122,6 +123,14 @@ class MoreScreen extends StatelessWidget {
                 subtitle: const Text('Accuracy, retention, streaks and achievements'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _open(context, 'Statistics', const StatsScreen()),
+              ),
+              const Divider(height: 1, indent: 72),
+              ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.shield_outlined)),
+                title: const Text('Balanced exam history', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Past tests, improvement and weak subjects'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PoliceExamHub())),
               ),
               const Divider(height: 1, indent: 72),
               ListTile(
@@ -591,6 +600,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
         ModeTile(icon: Icons.star_border, title: 'Bookmarked', subtitle: 'Only your saved questions', onTap: () => start(PracticeMode.bookmarked)),
         ModeTile(icon: Icons.timer_outlined, title: 'Mock Exam', subtitle: 'Timed at 60 seconds per question', onTap: () => start(PracticeMode.mockExam)),
         ModeTile(icon: Icons.shuffle, title: 'Random 50', subtitle: '50 random questions from the bank', onTap: () => start(PracticeMode.random50)),
+         ModeTile(icon: Icons.shield_outlined, title: 'Balanced Random B1 Exam', subtitle: 'Set any question count • equal subject allocation • saved results', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PoliceExamHub()))),
       ],
     );
   }
