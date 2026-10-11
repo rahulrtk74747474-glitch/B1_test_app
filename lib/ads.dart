@@ -152,7 +152,9 @@ class AdsManager {
 /// Reserved, non-clickable-in-app banner area safely separated from answers.
 /// No artificial banner or fake advertisement is shown if SDK/consent is unavailable.
 class QuestionBanner extends StatefulWidget {
-  const QuestionBanner({super.key});
+  const QuestionBanner({super.key, this.large = false});
+  /// On setup and result pages, use a 300 x 250 medium rectangle when it fits.
+  final bool large;
   @override
   State<QuestionBanner> createState() => _QuestionBannerState();
 }
@@ -178,8 +180,12 @@ class _QuestionBannerState extends State<QuestionBanner> {
 
   Future<void> _load() async {
     _loading = true;
-    final width = (MediaQuery.sizeOf(context).width - 32).floor().clamp(1, 10000);
-    final size = await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(width);
+    // A 300x250 medium rectangle is less intrusive than a full-screen ad and
+    // works within the scrollable result/setup page. Compact phones fall back.
+    final availableWidth = (MediaQuery.sizeOf(context).width - 48).floor().clamp(1, 10000);
+    final size = widget.large && availableWidth >= 300
+        ? AdSize.mediumRectangle
+        : await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(availableWidth);
     if (!mounted) return;
     if (size == null) {
       _loading = false;
