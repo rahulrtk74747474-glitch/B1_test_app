@@ -28,6 +28,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/privacy_policy.txt
     - assets/sample_bns_10.json
     - assets/preloaded/
 
