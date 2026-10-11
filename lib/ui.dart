@@ -839,6 +839,10 @@ class _QuizScreenState extends State<QuizScreen> {
 
   Future<void> record(ReviewRating rating) async {
     if (!answered || selected == null || recordingAnswer || finishing) return;
+    if (currentAnswerSaved) {
+      await finish();
+      return;
+    }
     recordingAnswer = true;
     final answeredQuestion = question;
     final answer = selected!;
@@ -921,6 +925,23 @@ class _QuizScreenState extends State<QuizScreen> {
     }
   }
 
+  Future<void> confirmEarlyFinish() async {
+    if (finishing || recordingAnswer) return;
+    final confirmed = await showDialog<bool>(
+      context: context, builder: (dialog) => AlertDialog(
+        title: const Text('Finish test now?'),
+        content: const Text('Unanswered questions will be marked as skipped. Your results and subject statistics will be saved.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Keep studying')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('Finish test')),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await finish();
+  }
+
   Future<void> editNote() async {
     final controller = TextEditingController(text: await AppDatabase.instance.noteFor(question.id));
     if (!mounted) return;
@@ -955,8 +976,14 @@ class _QuizScreenState extends State<QuizScreen> {
         title: LinearProgressIndicator(value: progress, minHeight: 7, borderRadius: BorderRadius.circular(10)),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Center(child: Text((index + 1).toString() + '/' + queue.length.toString(), style: const TextStyle(fontWeight: FontWeight.w800))),
+            padding: const EdgeInsets.only(right: 8),
+            child: Center(child: Text((index + 1).toString() + '/' + queue.length.toString(),
+              style: const TextStyle(fontWeight: FontWeight.w800))),
+          ),
+          IconButton(
+            tooltip: 'Finish test and see results',
+            onPressed: finishing ? null : confirmEarlyFinish,
+            icon: const Icon(Icons.flag_outlined),
           ),
         ],
       ),
