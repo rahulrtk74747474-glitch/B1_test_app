@@ -4,7 +4,7 @@
 - App feature branch: `feature/playstore-admob-release`, kept separate from `main`.
 - Release package ID: `com.rahulrtk.policeb1test`. **Choose this identity carefully before your first upload; Play package IDs cannot be changed for the same listing.**
 - Play required target: Android 16 / API 36.
-- Signed AAB workflow: Actions > **Police B1 Test — Signed Google Play AAB** > Run workflow. It **will fail safely** until signing and production AdMob values are configured.
+- Signed AAB workflow: **Police B1 Test — Signed Google Play AAB**. On this feature branch, its build job is skipped until AdMob GitHub variables are configured; after the signing secrets are also set, push a change to this feature branch to generate the signed artifact. Manual `Run workflow` becomes available when this workflow definition exists on the repository default branch.
 - Debug builds use **Google's official test ads only**. Production AAB requires real AdMob values.
 - The existing question bank contains **12,488 supplied MCQs**, not independently audited for correctness, copyright or current law.
 
@@ -39,7 +39,7 @@ Add the resulting Base64 as secret `KEYSTORE_BASE64`, plus `KEYSTORE_PASSWORD`, 
 - Capture genuine phone screenshots, supply a high-resolution icon and feature graphic; avoid mocked-up screenshots purporting to be actual app UI.
 
 ## Step 5 — Release
-1. Run **Police B1 Test — Signed Google Play AAB** on this branch and download artifact `police-b1-test-google-play-signed-aab`.
+1. After configuring AdMob variables and signing secrets, push a change to this feature branch (or run the workflow manually after its definition is installed on the repository default branch), and download artifact `police-b1-test-google-play-signed-aab`.
 2. Upload it to Play Console **Internal testing** first; check launch and ad/UMP behavior on Android 16/API 36 and other devices, verify offline access and question rendering.
 3. New personal Play developer accounts created after 13 Nov 2023 normally require a closed test with at least **12 opted-in testers continuously for 14 days** before applying for production access.
 4. Address Pre-launch report, app content & policy declarations, Play Console account verification, billing/tax info, and production review.
