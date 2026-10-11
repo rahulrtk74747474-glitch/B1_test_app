@@ -327,6 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+              const QuestionBanner(),
               const SizedBox(height: 24),
               Text('Topics', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 12),
@@ -676,6 +677,7 @@ class _RevisionScreenState extends State<RevisionScreen> {
               Text('Revision', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
               const Text('Questions stay here until you finally mark them Easy.'),
+              const QuestionBanner(),
               const SizedBox(height: 16),
               Card(
                 child: ListTile(
@@ -1339,6 +1341,7 @@ class QuestionDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
         children: [
           Pill(icon: Icons.sell_outlined, text: question.topic),
+          const QuestionBanner(),
           const SizedBox(height: 12),
           Text(question.question, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, height: 1.5)),
           if (question.questionEnglish.isNotEmpty) ...[
