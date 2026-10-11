@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -1566,6 +1567,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: Icon(Icons.ad_units_outlined),
             title: Text('Advertisements'),
             subtitle: Text('Ads support this free study app. Study works offline, and ads are only requested when consent permits.'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.policy_outlined),
+            title: const Text('Privacy policy'),
+            subtitle: const Text('What this app and Google AdMob may process'),
+            onTap: () async {
+              final policy = await rootBundle.loadString('assets/privacy_policy.txt');
+              if (!context.mounted) return;
+              await showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                showDragHandle: true,
+                builder: (sheet) => SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
+                    child: SizedBox(height: MediaQuery.sizeOf(sheet).height * .75,
+                      child: SingleChildScrollView(child: SelectableText(policy))),
+                  ),
+                ),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),
