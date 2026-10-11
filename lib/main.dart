@@ -8,6 +8,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppDatabase.instance.database;
   await AppDatabase.instance.seedSampleIfEmpty();
+  await AppDatabase.instance.seedBundledQuestions();
   final prefs = await SharedPreferences.getInstance();
   runApp(B1App(prefs: prefs));
 }
@@ -41,7 +42,7 @@ class _B1AppState extends State<B1App> {
   ThemeData theme(Brightness brightness) {
     final dark = brightness == Brightness.dark;
     final scheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF665CF6),
+      seedColor: const Color(0xFF0C447D),
       brightness: brightness,
       surface: dark ? const Color(0xFF111318) : const Color(0xFFF8F9FC),
     );
@@ -93,7 +94,7 @@ class _B1AppState extends State<B1App> {
   @override
   Widget build(BuildContext context) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'B1 Daily Drill',
+        title: 'Police B1 Test',
         theme: theme(Brightness.light),
         darkTheme: theme(Brightness.dark),
         themeMode: themeMode,
