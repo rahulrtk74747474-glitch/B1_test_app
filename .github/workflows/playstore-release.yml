@@ -12,7 +12,7 @@ jobs:
       ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
       ADMOB_BANNER_ID: ${{ vars.ADMOB_BANNER_ID }}
       ADMOB_INTERSTITIAL_ID: ${{ vars.ADMOB_INTERSTITIAL_ID }}
-      KEYSTORE_FILE: ${{ runner.temp }}/police-b1-upload.jks
+      KEYSTORE_FILE: /tmp/police-b1-upload.jks
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
