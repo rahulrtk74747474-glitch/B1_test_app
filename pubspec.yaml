@@ -31,6 +31,7 @@ flutter:
     - assets/privacy_policy.txt
     - assets/sample_bns_10.json
     - assets/preloaded/
+    - assets/additional/
 
 flutter_launcher_icons:
   android: true
