@@ -7,7 +7,6 @@ import 'ui.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppDatabase.instance.database;
-  await AppDatabase.instance.seedSampleIfEmpty();
   final prefs = await SharedPreferences.getInstance();
   runApp(B1App(prefs: prefs));
 }
