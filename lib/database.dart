@@ -683,6 +683,58 @@ class AppDatabase {
         0;
   }
 
+  /// Exact number currently eligible for a selected Home, Practice or Review
+  /// session. Daily Review includes due cards plus today's remaining new cards.
+  Future<int> availableForMode(
+    PracticeMode mode, {
+    String? topic,
+    int dailyNewLimit = 30,
+  }) async {
+    final db = await database;
+    Future<int> count(String sql, [List<Object?> params = const []]) async =>
+        Sqflite.firstIntValue(await db.rawQuery(sql, params)) ?? 0;
+    switch (mode) {
+      case PracticeMode.topicPractice:
+        return topic == null ? 0 : topicQuestionCount(topic);
+      case PracticeMode.revisionAll:
+        final counts = await revisionCounts();
+        return counts.values.fold<int>(0, (total, n) => total + n);
+      case PracticeMode.revisionAgain:
+      case PracticeMode.revisionHard:
+      case PracticeMode.revisionGood:
+        final counts = await revisionCounts();
+        final rating = switch (mode) {
+          PracticeMode.revisionAgain => 'again',
+          PracticeMode.revisionHard => 'hard',
+          _ => 'good',
+        };
+        return counts[rating] ?? 0;
+      case PracticeMode.wrongAnswers:
+        return count('SELECT COUNT(*) FROM progress WHERE last_result = 0');
+      case PracticeMode.bookmarked:
+        return count('SELECT COUNT(*) FROM progress WHERE bookmarked = 1');
+      case PracticeMode.dailyReview:
+        final now = DateTime.now();
+        final start = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+        final end = DateTime(now.year, now.month, now.day + 1).millisecondsSinceEpoch;
+        final introduced = await count(
+          'SELECT COUNT(*) FROM progress WHERE first_answered >= ? AND first_answered < ?',
+          [start, end],
+        );
+        final quota = math.max(0, dailyNewLimit - introduced);
+        final due = await dueCount();
+        final fresh = await count('''
+          SELECT COUNT(*) FROM questions q
+          LEFT JOIN progress p ON p.question_id = q.id
+          WHERE p.question_id IS NULL OR p.attempts = 0
+        ''');
+        return due + math.min(quota, fresh);
+      case PracticeMode.mockExam:
+      case PracticeMode.random50:
+        return questionCount();
+    }
+  }
+
   Future<List<Question>> buildSession({
     required PracticeMode mode,
     int sessionSize = 15,
@@ -690,7 +742,7 @@ class AppDatabase {
     String? topic,
   }) async {
     final db = await database;
-    final limit = mode == PracticeMode.random50 ? 50 : math.max(1, sessionSize);
+    final limit = math.max(1, sessionSize);
     List<Map<String, Object?>> rows;
 
     switch (mode) {
@@ -762,7 +814,7 @@ class AppDatabase {
         rows = await db.rawQuery('SELECT * FROM questions ORDER BY RANDOM() LIMIT ?', [limit]);
         break;
       case PracticeMode.random50:
-        rows = await db.rawQuery('SELECT * FROM questions ORDER BY RANDOM() LIMIT 50');
+        rows = await db.rawQuery('SELECT * FROM questions ORDER BY RANDOM() LIMIT ?', [limit]);
         break;
       case PracticeMode.revisionAll:
         rows = (await revisionQuestions('all', limit: limit)).map((q) => q.toDb()).toList();
