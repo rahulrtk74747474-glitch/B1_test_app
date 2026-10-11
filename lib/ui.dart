@@ -776,6 +776,7 @@ class _QuizScreenState extends State<QuizScreen> {
   bool recordingAnswer = false;
   bool finishing = false;
   bool finishPending = false;
+  bool currentAnswerSaved = false;
   late List<Question> queue;
   late List<MapEntry<String, String>> options;
   
@@ -815,6 +816,7 @@ class _QuizScreenState extends State<QuizScreen> {
     started = DateTime.now();
     selected = null;
     answered = false;
+    currentAnswerSaved = false;
     options = question.options.entries.toList();
     if (widget.prefs.getBool('shuffle_options') ?? false) options.shuffle();
     bookmarked = await AppDatabase.instance.isBookmarked(question.id);
@@ -850,6 +852,7 @@ class _QuizScreenState extends State<QuizScreen> {
         mode: widget.mode,
       );
       recordedAttempts.add(PracticeAttempt(question: answeredQuestion, answer: answer));
+      currentAnswerSaved = true;
       recordingAnswer = false;
       if (!mounted) return;
       // The chosen number is exact: review scheduling affects future tests,
@@ -881,9 +884,7 @@ class _QuizScreenState extends State<QuizScreen> {
     try {
       // If time expires after a choice was tapped but before Next,
       // include that choice both in local progress and exam results.
-      if (answered && selected != null &&
-          (recordedAttempts.isEmpty ||
-           recordedAttempts.last.question.id != question.id)) {
+      if (answered && selected != null && !currentAnswerSaved) {
         final current = question;
         final answer = selected!;
         await AppDatabase.instance.recordAnswer(
@@ -894,6 +895,7 @@ class _QuizScreenState extends State<QuizScreen> {
           mode: widget.mode,
         );
         recordedAttempts.add(PracticeAttempt(question: current, answer: answer));
+        currentAnswerSaved = true;
       }
       final saved = await PoliceExamRepository.instance.savePracticeSession(
         plannedQuestions: widget.questions,
