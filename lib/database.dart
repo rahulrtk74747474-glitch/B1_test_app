@@ -23,7 +23,7 @@ class AppDatabase {
     final path = p.join(await getDatabasesPath(), 'b1_daily_drill.db');
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -88,6 +88,33 @@ class AppDatabase {
           )
         ''');
         await db.execute('CREATE INDEX idx_reviews_answered ON reviews(answered_at)');
+
+        await db.execute('''
+          CREATE TABLE exam_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            started_at INTEGER NOT NULL, finished_at INTEGER NOT NULL,
+            total INTEGER NOT NULL, attempted INTEGER NOT NULL,
+            correct INTEGER NOT NULL, wrong INTEGER NOT NULL,
+            score REAL NOT NULL, duration_ms INTEGER NOT NULL,
+            negative_marking INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE exam_answers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+            question_id INTEGER NOT NULL,
+            topic TEXT NOT NULL,
+            selected_answer TEXT,
+            correct_answer TEXT NOT NULL,
+            correct INTEGER NOT NULL,
+            attempted INTEGER NOT NULL
+          )
+        ''');
+        await db.execute('CREATE INDEX idx_exam_answers_session ON exam_answers(session_id)');
+        await db.execute('CREATE INDEX idx_exam_answers_topic ON exam_answers(topic)');
+        await db.execute('CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -107,8 +134,52 @@ class AppDatabase {
           await db.execute("ALTER TABLE questions ADD COLUMN images_json TEXT NOT NULL DEFAULT '[]'");
           await db.execute("ALTER TABLE questions ADD COLUMN option_images_json TEXT NOT NULL DEFAULT '{}'");
         }
+        if (oldVersion < 5) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS exam_sessions (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              started_at INTEGER NOT NULL, finished_at INTEGER NOT NULL,
+              total INTEGER NOT NULL, attempted INTEGER NOT NULL,
+              correct INTEGER NOT NULL, wrong INTEGER NOT NULL,
+              score REAL NOT NULL, duration_ms INTEGER NOT NULL,
+              negative_marking INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS exam_answers (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              session_id INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+              question_id INTEGER NOT NULL,
+              topic TEXT NOT NULL, selected_answer TEXT,
+              correct_answer TEXT NOT NULL, correct INTEGER NOT NULL,
+              attempted INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_exam_answers_session ON exam_answers(session_id)');
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_exam_answers_topic ON exam_answers(topic)');
+          await db.execute('CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+        }
+
       },
     );
+  }
+
+
+  /// Idempotent bundled import. Keep progress when upgrading an existing install.
+  /// Each segment is checkpointed to recover cleanly from an interrupted first run.
+  Future<void> seedBundledQuestions() async {
+    final db = await database;
+    final marker = await db.query('app_meta', where: 'key = ?',
+      whereArgs: ['preloaded_chunk'], limit: 1);
+    final last = marker.isEmpty ? 0 : int.tryParse(marker.first['value'] as String) ?? 0;
+    for (var i = last + 1; i <= 45; i++) {
+      final path = 'assets/preloaded/bank_${i.toString().padLeft(3, '0')}.json';
+      final decoded = jsonDecode(await rootBundle.loadString(path));
+      if (decoded is! List) throw FormatException('Expected question list: $path');
+      await _importRows(decoded);
+      await db.insert('app_meta', {'key': 'preloaded_chunk', 'value': '$i'},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    }
   }
 
   Future<void> seedSampleIfEmpty() async {
@@ -878,6 +949,8 @@ class AppDatabase {
       'exported_at': DateTime.now().toIso8601String(),
       'progress': await db.query('progress', orderBy: 'question_id'),
       'reviews': await db.query('reviews', orderBy: 'id'),
+      'exam_sessions': await db.query('exam_sessions', orderBy: 'id'),
+      'exam_answers': await db.query('exam_answers', orderBy: 'id'),
     };
     final dir = await getApplicationDocumentsDirectory();
     final file = File(p.join(dir.path, 'b1_progress_${DateTime.now().millisecondsSinceEpoch}.json'));
@@ -888,6 +961,8 @@ class AppDatabase {
   Future<void> resetProgress() async {
     final db = await database;
     await db.transaction((txn) async {
+      await txn.delete('exam_answers');
+      await txn.delete('exam_sessions');
       await txn.delete('reviews');
       await txn.delete('progress');
     });
