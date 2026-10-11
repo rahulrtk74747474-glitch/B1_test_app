@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database.dart';
+import 'ads.dart';
 import 'ui.dart';
 
 Future<void> main() async {
@@ -9,6 +10,8 @@ Future<void> main() async {
   await AppDatabase.instance.database;
   final prefs = await SharedPreferences.getInstance();
   runApp(B1App(prefs: prefs));
+  // Never wait for network or ad consent before allowing study.
+  AdsManager.instance.initialize();
 }
 
 class B1App extends StatefulWidget {
