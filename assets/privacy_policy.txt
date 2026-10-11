@@ -1,0 +1,31 @@
+Police B1 Test — Privacy Policy
+Last updated: 11 October 2026
+
+Publisher: Independent developer of Police B1 Test (publisher identity and support email must be finalized before public launch).
+
+About this app
+Police B1 Test is an independent educational exam-preparation app. It is NOT an official police or government application, is not endorsed by the Haryana Police, and does not provide authoritative legal advice.
+
+Study information
+Questions, bookmarks, answers, revision progress, test results, notes, and test history are stored on your device in the app database. We do not run a cloud account or upload this study data to our own server. You can export or reset progress from Settings. Uninstalling normally removes local app data subject to Android backup settings.
+
+Advertisements
+This free app uses Google AdMob (Google Mobile Ads SDK) to serve banner and occasional full-screen advertisements. When ads are enabled and permitted, Google and its partners may automatically process advertising identifiers (where available), IP address, coarse location inferred from IP address, device/app information, ad interactions, diagnostic information, and other data according to Google policies. We do not sell your saved study answers to advertisers. Google’s handling of advertising data is described at https://policies.google.com/privacy and https://support.google.com/admob/answer/6128543.
+
+Consent and privacy controls
+Where required, Google’s User Messaging Platform presents consent options before ads are requested. You may revisit applicable ad privacy options in app Settings. If consent has not been obtained where required or ads cannot load, core studying continues without ads. You may also adjust or delete Android advertising identifiers in device privacy settings.
+
+Third-party data handling
+AdMob may send data to Google and its approved advertising partners, including outside your country, subject to the SDK provider’s safeguards and applicable law. Google's retention and deletion rules apply to data processed by Google.
+
+Children and intended audience
+This exam-preparation app is intended for adult candidates and is not designed or marketed to children.
+
+Data security
+Your personal study progress stays on device. Requests made by the Google Mobile Ads SDK use the SDK provider’s supported network security. We cannot guarantee the security of third-party networks.
+
+Contact
+Before publishing, the app publisher must replace this paragraph with a real, monitored support email, legal/developer identity, and applicable region.
+
+Updates
+Changes to this privacy policy will be reflected in the app and public policy page.
