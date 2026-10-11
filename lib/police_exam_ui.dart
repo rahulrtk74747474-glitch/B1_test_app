@@ -257,8 +257,6 @@ class _PoliceBalancedExamScreenState extends State<PoliceBalancedExamScreen> {
         Text(q.topic, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Text(q.question, style: Theme.of(context).textTheme.titleLarge),
-        if (q.questionEnglish.isNotEmpty) Padding(
-          padding: const EdgeInsets.only(top: 8), child: Text(q.questionEnglish)),
         for (final imagePath in q.imagePaths) Padding(
           padding: const EdgeInsets.only(top: 12),
           child: PoliceExamImage(path: imagePath)),
