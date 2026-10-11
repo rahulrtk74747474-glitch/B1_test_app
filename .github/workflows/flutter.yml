@@ -30,6 +30,8 @@ jobs:
       - run: flutter test
       - name: Validate bundled B1 question bank
         run: python3 tools/validate_preloaded.py
+      - name: Validate added reference questions
+        run: python3 tools/validate_reference.py
       - run: flutter build apk --debug
       - uses: actions/upload-artifact@v4
         with:
