@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'models.dart';
+import 'ads.dart';
 import 'police_exam_repository.dart';
 
 class PoliceExamHub extends StatefulWidget {
@@ -72,6 +73,8 @@ class _PoliceExamHubState extends State<PoliceExamHub> {
       Text('Balanced Random Exam', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
       const SizedBox(height: 8),
       const Text('Choose the exact number of questions. Subjects receive an equal share wherever enough questions exist; shortages are redistributed. Answers stay hidden until submission.'),
+      const SizedBox(height: 12),
+      const QuestionBanner(),
       const SizedBox(height: 16),
       FutureBuilder<Map<String, int>>(
         future: inventory,
@@ -219,9 +222,12 @@ class _PoliceBalancedExamScreenState extends State<PoliceBalancedExamScreen> {
         negativeMarking: widget.negativeMarking,
       );
       if (!mounted) return;
+      // The result page is shown first; when it is closed, show a capped
+      // interstitial at the natural transition back to the exam dashboard.
       await Navigator.pushReplacement(context, MaterialPageRoute(
         builder: (_) => PoliceExamResultScreen(record: result),
       ));
+      await AdsManager.instance.maybeShowAfterResult();
     } catch (e) {
       if (mounted) {
         setState(() => saving = false);
@@ -246,6 +252,7 @@ class _PoliceBalancedExamScreenState extends State<PoliceBalancedExamScreen> {
       ),
       body: ListView(padding: const EdgeInsets.all(18), children: [
         LinearProgressIndicator(value: (index + 1) / widget.questions.length),
+        const QuestionBanner(),
         const SizedBox(height: 15),
         Text(q.topic, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
