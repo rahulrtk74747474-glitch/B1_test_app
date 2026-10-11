@@ -34,8 +34,17 @@ class PoliceSubjectResult {
   final String topic;
   final int total, correct, wrong, attempted;
   final double? previousAccuracy;
-  double get accuracy => total == 0 ? 0 : correct * 100 / total;
+  double get accuracy => attempted == 0 ? 0 : correct * 100 / attempted;
+  int get skipped => total - attempted;
   double? get improvement => previousAccuracy == null ? null : accuracy - previousAccuracy!;
+}
+
+/// A persisted response from Home, Practice or Review; recorded separately
+/// from progress so sessions do not count twice toward spaced repetition.
+class PracticeAttempt {
+  const PracticeAttempt({required this.question, required this.answer});
+  final Question question;
+  final String answer;
 }
 
 class PoliceExamRepository {
@@ -121,6 +130,69 @@ class PoliceExamRepository {
     );
   }
 
+  /// Save the result of a standard study or revision session. The study
+  /// screen has already called recordAnswer for each response: do not call it
+  /// again here, or the review counts and accuracy would be inflated.
+  Future<PoliceExamRecord> savePracticeSession({
+    required List<Question> plannedQuestions,
+    required List<PracticeAttempt> attempts,
+    required DateTime started,
+    required int durationMs,
+    required bool negativeMarking,
+  }) async {
+    if (plannedQuestions.isEmpty) throw ArgumentError('No questions');
+    final db = await AppDatabase.instance.database;
+    final attemptedIds = attempts.map((a) => a.question.id).toSet();
+    final skippedQuestions = plannedQuestions
+        .where((q) => !attemptedIds.contains(q.id)).toList();
+    final correct = attempts.where((a) => a.answer == a.question.answer).length;
+    final wrong = attempts.length - correct;
+    final total = attempts.length + skippedQuestions.length;
+    final score = correct - (negativeMarking ? wrong * .25 : 0.0);
+    final finishedAt = DateTime.now().millisecondsSinceEpoch;
+    final id = await db.transaction<int>((txn) async {
+      final id = await txn.insert('exam_sessions', {
+        'started_at': started.millisecondsSinceEpoch,
+        'finished_at': finishedAt,
+        'total': total, 'attempted': attempts.length,
+        'correct': correct, 'wrong': wrong,
+        'score': score, 'duration_ms': durationMs,
+        'negative_marking': negativeMarking ? 1 : 0,
+      });
+      final batch = txn.batch();
+      for (final attempt in attempts) {
+        batch.insert('exam_answers', {
+          'session_id': id,
+          'question_id': attempt.question.id,
+          'topic': attempt.question.topic,
+          'selected_answer': attempt.answer,
+          'correct_answer': attempt.question.answer,
+          'correct': attempt.answer == attempt.question.answer ? 1 : 0,
+          'attempted': 1,
+        });
+      }
+      for (final q in skippedQuestions) {
+        batch.insert('exam_answers', {
+          'session_id': id,
+          'question_id': q.id,
+          'topic': q.topic,
+          'selected_answer': null,
+          'correct_answer': q.answer,
+          'correct': 0,
+          'attempted': 0,
+        });
+      }
+      await batch.commit(noResult: true);
+      return id;
+    });
+    return PoliceExamRecord(
+      id: id, startedAt: started.millisecondsSinceEpoch,
+      total: total, attempted: attempts.length,
+      correct: correct, wrong: wrong,
+      score: score, durationMs: durationMs,
+    );
+  }
+
   Future<List<PoliceExamRecord>> history({int limit = 100}) async {
     final db = await AppDatabase.instance.database;
     final rows = await db.query('exam_sessions',
@@ -144,7 +216,7 @@ class PoliceExamRepository {
       FROM exam_answers WHERE session_id = ? GROUP BY topic ORDER BY topic
     ''', [examId]);
     final previous = await db.rawQuery('''
-      SELECT ea.topic, SUM(ea.correct) AS correct, COUNT(*) AS total
+      SELECT ea.topic, SUM(ea.correct) AS correct, SUM(ea.attempted) AS total
       FROM exam_answers ea JOIN exam_sessions es ON ea.session_id = es.id
       WHERE ea.session_id < ? GROUP BY ea.topic
     ''', [examId]);
