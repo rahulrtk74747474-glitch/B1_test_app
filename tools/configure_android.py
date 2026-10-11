@@ -38,12 +38,7 @@ if args.release:
 xml = manifest.read_text()
 xml = xml.replace('android:label="b1_test_app"', 'android:label="Police B1 Test"')
 if 'com.google.android.gms.ads.APPLICATION_ID' not in xml:
-    xml = xml.replace('<application', '''<application
-        ''', 1)
-    xml = xml.replace('>', f'''>
-        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID"
-                   android:value="{app_id}" />''', 1) if False else xml
-    # Insert inside the application element, not the XML declaration.
+    # Insert the AdMob app ID inside <application>, not the XML declaration.
     xml = re.sub(r'(<application\b[^>]*>)',
                  lambda m: m.group(1) + '\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="' + app_id + '" />',
                  xml, count=1)
