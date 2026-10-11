@@ -67,11 +67,11 @@ class _QuestionCountDialogState extends State<_QuestionCountDialog> {
 
   @override
   Widget build(BuildContext context) => Dialog(
-    insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+    insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 430),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
