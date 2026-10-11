@@ -165,7 +165,7 @@ class MoreScreen extends StatelessWidget {
                 const SizedBox(width: 14),
                 const Expanded(
                   child: Text(
-                    'The question bank and your progress work offline. Review ratings and language preferences are saved on this device.',
+                    'The question bank and your progress work offline. Review ratings and subject progress are saved on this device.',
                   ),
                 ),
               ],
@@ -1098,7 +1098,8 @@ class StatsScreen extends StatelessWidget {
         final stats = snapshot.data!;
         final achievements = achievementList(stats);
         final unlocked = achievements.where((item) => item.$2).length;
-        final weak = [...stats.topics]..sort((a, b) => a.mastery.compareTo(b.mastery));
+        final weak = stats.topics.where((t) => t.attempted >= 5).toList()
+          ..sort((a, b) => a.mastery.compareTo(b.mastery));
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
@@ -1172,7 +1173,9 @@ class StatsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
-            Text('Weakest topics', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            Text('Weakest practiced subjects', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            if (weak.isEmpty) const Padding(padding: EdgeInsets.only(top: 8), child:
+              Text('Answer at least five questions in a subject to see performance here.')),
             for (final topic in weak.take(5))
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -1963,7 +1966,7 @@ List<(String, bool, IconData)> achievementList(StatsSnapshot s) {
     ('95% Accuracy', r >= 200 && accuracy >= 95, Icons.verified),
     ('Fast 20', r >= 20 && s.averageTimeMs > 0 && s.averageTimeMs <= 20000, Icons.speed),
     ('All Topics', s.topics.length >= 4 && s.topics.every((t) => t.attempted > 0), Icons.category_outlined),
-    ('Mastery 80', s.topics.isNotEmpty && s.topics.any((t) => t.mastery >= 80), Icons.school_outlined),
+    ('Mastery 80', s.topics.isNotEmpty && s.topics.any((t) => t.studied >= 10 && t.mastery >= 80), Icons.school_outlined),
   ];
 }
 
