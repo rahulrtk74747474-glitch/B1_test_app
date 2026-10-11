@@ -624,7 +624,8 @@ class AppDatabase {
       return TopicSummary(
         topic: row['topic'] as String,
         total: (row['total'] as num).toInt(),
-        attempted: attemptsTotal == 0 ? 0 : attemptsTotal,
+        attempted: attemptsTotal,
+        studied: (row['attempted'] as num).toInt(),
         correct: (row['correct'] as num).toInt(),
       );
     }).toList();
