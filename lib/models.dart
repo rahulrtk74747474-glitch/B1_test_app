@@ -266,12 +266,16 @@ class TopicSummary {
     required this.total,
     required this.attempted,
     required this.correct,
+    required this.studied,
   });
 
   final String topic;
   final int total;
   final int attempted;
   final int correct;
+  /// Number of distinct questions attempted at least once.
+  final int studied;
+  double get coverage => total == 0 ? 0 : (studied / total * 100).clamp(0, 100).toDouble();
 
   double get mastery => attempted == 0 ? 0 : (correct / attempted * 100).clamp(0, 100).toDouble();
 }
