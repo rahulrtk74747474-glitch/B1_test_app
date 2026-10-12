@@ -23,7 +23,7 @@ class AppDatabase {
     final path = p.join(await getDatabasesPath(), 'b1_daily_drill.db');
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -88,6 +88,33 @@ class AppDatabase {
           )
         ''');
         await db.execute('CREATE INDEX idx_reviews_answered ON reviews(answered_at)');
+
+        await db.execute('''
+          CREATE TABLE exam_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            started_at INTEGER NOT NULL, finished_at INTEGER NOT NULL,
+            total INTEGER NOT NULL, attempted INTEGER NOT NULL,
+            correct INTEGER NOT NULL, wrong INTEGER NOT NULL,
+            score REAL NOT NULL, duration_ms INTEGER NOT NULL,
+            negative_marking INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE exam_answers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+            question_id INTEGER NOT NULL,
+            topic TEXT NOT NULL,
+            selected_answer TEXT,
+            correct_answer TEXT NOT NULL,
+            correct INTEGER NOT NULL,
+            attempted INTEGER NOT NULL
+          )
+        ''');
+        await db.execute('CREATE INDEX idx_exam_answers_session ON exam_answers(session_id)');
+        await db.execute('CREATE INDEX idx_exam_answers_topic ON exam_answers(topic)');
+        await db.execute('CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -107,8 +134,87 @@ class AppDatabase {
           await db.execute("ALTER TABLE questions ADD COLUMN images_json TEXT NOT NULL DEFAULT '[]'");
           await db.execute("ALTER TABLE questions ADD COLUMN option_images_json TEXT NOT NULL DEFAULT '{}'");
         }
+        if (oldVersion < 5) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS exam_sessions (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              started_at INTEGER NOT NULL, finished_at INTEGER NOT NULL,
+              total INTEGER NOT NULL, attempted INTEGER NOT NULL,
+              correct INTEGER NOT NULL, wrong INTEGER NOT NULL,
+              score REAL NOT NULL, duration_ms INTEGER NOT NULL,
+              negative_marking INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS exam_answers (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              session_id INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+              question_id INTEGER NOT NULL,
+              topic TEXT NOT NULL, selected_answer TEXT,
+              correct_answer TEXT NOT NULL, correct INTEGER NOT NULL,
+              attempted INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_exam_answers_session ON exam_answers(session_id)');
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_exam_answers_topic ON exam_answers(topic)');
+          await db.execute('CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+        }
+
       },
     );
+  }
+
+
+  /// Idempotent bundled import. Keep progress when upgrading an existing install.
+  /// Each segment is checkpointed to recover cleanly from an interrupted first run.
+  Future<void> seedBundledQuestions() async {
+    final db = await database;
+    final marker = await db.query('app_meta', where: 'key = ?',
+      whereArgs: ['preloaded_chunk'], limit: 1);
+    final last = marker.isEmpty ? 0 : int.tryParse(marker.first['value'] as String) ?? 0;
+    for (var i = last + 1; i <= 61; i++) {
+      final path = 'assets/preloaded/bank_${i.toString().padLeft(3, '0')}.json';
+      final decoded = jsonDecode(await rootBundle.loadString(path));
+      if (decoded is! List) throw FormatException('Expected question list: $path');
+      await _importRows(decoded);
+      await db.insert('app_meta', {'key': 'preloaded_chunk', 'value': '$i'},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    // Additional 1–6500 reference PDF questions supplied separately.
+    // Keep an independent checkpoint so existing installs can upgrade safely.
+    // IDs are allocated to a separate namespace (120000000+) to prevent
+    // overwriting progress for previously installed question banks.
+    final importedMarker = await db.query('app_meta', where: 'key = ?',
+      whereArgs: ['reference_chunk'], limit: 1);
+    final importedUntil = importedMarker.isEmpty ? 0 :
+      int.tryParse(importedMarker.first['value'] as String) ?? 0;
+    for (var i = importedUntil + 1; i <= 32; i++) {
+      final path = 'assets/additional/reference_${i.toString().padLeft(3, '0')}.json';
+      final decoded = jsonDecode(await rootBundle.loadString(path));
+      if (decoded is! List) throw FormatException('Expected question list: $path');
+      final topicAliases = <String, String>{
+        'BNS 2023': 'BNS',
+        'BNSS 2023': 'BNSS',
+        'BSA 2023': 'BSA',
+        'PPR - Punjab Police Rules': 'Punjab Police Rules',
+        'Human Behaviour / Psychology': 'Human Behaviour & Psychology',
+        'Crime Scene / Investigation / Physical Evidence': 'Scene of Crime',
+        'Fingerprint': 'Police Science & Fingerprints',
+        'Traffic / Road Safety': 'Traffic',
+        'LSL / Special Acts': 'Local & Special Laws',
+        'Forensic / Medico-Legal / First Aid': 'Forensic Science & Medicine',
+      };
+      final normalized = decoded.map((item) {
+        final question = Map<String, dynamic>.from(item as Map);
+        final originalTopic = question['topic']?.toString() ?? '';
+        question['topic'] = topicAliases[originalTopic] ?? originalTopic;
+        return question;
+      }).toList();
+      await _importRows(normalized);
+      await db.insert('app_meta', {'key': 'reference_chunk', 'value': '$i'},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    }
   }
 
   Future<void> seedSampleIfEmpty() async {
@@ -553,7 +659,8 @@ class AppDatabase {
       return TopicSummary(
         topic: row['topic'] as String,
         total: (row['total'] as num).toInt(),
-        attempted: attemptsTotal == 0 ? 0 : attemptsTotal,
+        attempted: attemptsTotal,
+        studied: (row['attempted'] as num).toInt(),
         correct: (row['correct'] as num).toInt(),
       );
     }).toList();
@@ -576,6 +683,58 @@ class AppDatabase {
         0;
   }
 
+  /// Exact number currently eligible for a selected Home, Practice or Review
+  /// session. Daily Review includes due cards plus today's remaining new cards.
+  Future<int> availableForMode(
+    PracticeMode mode, {
+    String? topic,
+    int dailyNewLimit = 30,
+  }) async {
+    final db = await database;
+    Future<int> count(String sql, [List<Object?> params = const []]) async =>
+        Sqflite.firstIntValue(await db.rawQuery(sql, params)) ?? 0;
+    switch (mode) {
+      case PracticeMode.topicPractice:
+        return topic == null ? 0 : topicQuestionCount(topic);
+      case PracticeMode.revisionAll:
+        final counts = await revisionCounts();
+        return counts.values.fold<int>(0, (total, n) => total + n);
+      case PracticeMode.revisionAgain:
+      case PracticeMode.revisionHard:
+      case PracticeMode.revisionGood:
+        final counts = await revisionCounts();
+        final rating = switch (mode) {
+          PracticeMode.revisionAgain => 'again',
+          PracticeMode.revisionHard => 'hard',
+          _ => 'good',
+        };
+        return counts[rating] ?? 0;
+      case PracticeMode.wrongAnswers:
+        return count('SELECT COUNT(*) FROM progress WHERE last_result = 0');
+      case PracticeMode.bookmarked:
+        return count('SELECT COUNT(*) FROM progress WHERE bookmarked = 1');
+      case PracticeMode.dailyReview:
+        final now = DateTime.now();
+        final start = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+        final end = DateTime(now.year, now.month, now.day + 1).millisecondsSinceEpoch;
+        final introduced = await count(
+          'SELECT COUNT(*) FROM progress WHERE first_answered >= ? AND first_answered < ?',
+          [start, end],
+        );
+        final quota = math.max(0, dailyNewLimit - introduced);
+        final due = await dueCount();
+        final fresh = await count('''
+          SELECT COUNT(*) FROM questions q
+          LEFT JOIN progress p ON p.question_id = q.id
+          WHERE p.question_id IS NULL OR p.attempts = 0
+        ''');
+        return due + math.min(quota, fresh);
+      case PracticeMode.mockExam:
+      case PracticeMode.random50:
+        return questionCount();
+    }
+  }
+
   Future<List<Question>> buildSession({
     required PracticeMode mode,
     int sessionSize = 15,
@@ -583,7 +742,7 @@ class AppDatabase {
     String? topic,
   }) async {
     final db = await database;
-    final limit = mode == PracticeMode.random50 ? 50 : math.max(1, sessionSize);
+    final limit = math.max(1, sessionSize);
     List<Map<String, Object?>> rows;
 
     switch (mode) {
@@ -655,7 +814,7 @@ class AppDatabase {
         rows = await db.rawQuery('SELECT * FROM questions ORDER BY RANDOM() LIMIT ?', [limit]);
         break;
       case PracticeMode.random50:
-        rows = await db.rawQuery('SELECT * FROM questions ORDER BY RANDOM() LIMIT 50');
+        rows = await db.rawQuery('SELECT * FROM questions ORDER BY RANDOM() LIMIT ?', [limit]);
         break;
       case PracticeMode.revisionAll:
         rows = (await revisionQuestions('all', limit: limit)).map((q) => q.toDb()).toList();
@@ -878,6 +1037,8 @@ class AppDatabase {
       'exported_at': DateTime.now().toIso8601String(),
       'progress': await db.query('progress', orderBy: 'question_id'),
       'reviews': await db.query('reviews', orderBy: 'id'),
+      'exam_sessions': await db.query('exam_sessions', orderBy: 'id'),
+      'exam_answers': await db.query('exam_answers', orderBy: 'id'),
     };
     final dir = await getApplicationDocumentsDirectory();
     final file = File(p.join(dir.path, 'b1_progress_${DateTime.now().millisecondsSinceEpoch}.json'));
@@ -888,6 +1049,8 @@ class AppDatabase {
   Future<void> resetProgress() async {
     final db = await database;
     await db.transaction((txn) async {
+      await txn.delete('exam_answers');
+      await txn.delete('exam_sessions');
       await txn.delete('reviews');
       await txn.delete('progress');
     });

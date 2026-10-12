@@ -3,11 +3,17 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database.dart';
+import 'ads.dart';
+import 'test_count_dialog.dart';
+import 'support_police_b1_screen.dart';
+import 'police_exam_repository.dart';
 import 'models.dart';
+import 'police_exam_ui.dart';
 
 const green = Color(0xFF22A06B);
 const amber = Color(0xFFF59E0B);
@@ -56,7 +62,12 @@ class _AppShellState extends State<AppShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        onDestinationSelected: (value) => setState(() => index = value),
+        onDestinationSelected: (value) => setState(() {
+          index = value;
+          // Recreate the tab after a quiz saves its latest rating. IndexedStack
+          // otherwise keeps the Review tab's original FutureBuilder snapshot.
+          revision++;
+        }),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.bolt_outlined), selectedIcon: Icon(Icons.bolt), label: 'Practice'),
@@ -125,6 +136,14 @@ class MoreScreen extends StatelessWidget {
               ),
               const Divider(height: 1, indent: 72),
               ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.shield_outlined)),
+                title: const Text('Balanced exam history', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Past tests, improvement and weak subjects'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PoliceExamHub())),
+              ),
+              const Divider(height: 1, indent: 72),
+              ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.settings_outlined)),
                 title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w800)),
                 subtitle: const Text('Language, appearance, reminders and data'),
@@ -143,6 +162,19 @@ class MoreScreen extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        Card(
+          child: ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.volunteer_activism_outlined)),
+            title: const Text('Support our free app', style: TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: const Text('Optional UPI or Binance contribution • no extra features required'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SupportPoliceB1Screen()),
+            ),
+          ),
+        ),
         const SizedBox(height: 18),
         Card(
           child: Padding(
@@ -154,7 +186,7 @@ class MoreScreen extends StatelessWidget {
                 const SizedBox(width: 14),
                 const Expanded(
                   child: Text(
-                    'The question bank and your progress work offline. Review ratings and language preferences are saved on this device.',
+                    'The question bank and your progress work offline. Review ratings and subject progress are saved on this device.',
                   ),
                 ),
               ],
@@ -201,58 +233,59 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> startReview() async {
+    final eligible = await AppDatabase.instance.availableForMode(
+      PracticeMode.dailyReview,
+      dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30,
+    );
+    if (!mounted) return;
+    if (eligible < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nothing is due right now.')));
+      return;
+    }
+    final chosen = await showQuestionCountDialog(context,
+      title: 'Daily Review', available: eligible,
+      preferred: widget.prefs.getInt('session_size') ?? 15,
+      description: '$eligible questions currently available for today\'s review');
+    if (chosen == null || !mounted) return;
+    await widget.prefs.setInt('session_size', chosen);
     final questions = await AppDatabase.instance.buildSession(
       mode: PracticeMode.dailyReview,
-      sessionSize: widget.prefs.getInt('session_size') ?? 15,
+      sessionSize: chosen,
       dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30,
     );
     if (!mounted) return;
     if (questions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nothing is due right now.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No review questions are currently available.')));
       return;
     }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => QuizScreen(
-          questions: questions,
-          mode: PracticeMode.dailyReview,
-          prefs: widget.prefs,
-        ),
-      ),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizScreen(
+      questions: questions, mode: PracticeMode.dailyReview, prefs: widget.prefs)));
     if (mounted) setState(load);
   }
 
   Future<void> startTopicPractice(TopicSummary selectedTopic) async {
-    final requested = widget.prefs.getInt('session_size') ?? 15;
-    final sessionSize = requested < 1
-        ? 1
-        : (requested > selectedTopic.total ? selectedTopic.total : requested);
-
+    final chosen = await showQuestionCountDialog(context,
+      title: selectedTopic.topic, available: selectedTopic.total,
+      preferred: widget.prefs.getInt('session_size') ?? 15,
+      description: 'Choose exactly how many ${selectedTopic.topic} questions to attempt.');
+    if (chosen == null || !mounted) return;
+    await widget.prefs.setInt('session_size', chosen);
     final questions = await AppDatabase.instance.buildSession(
       mode: PracticeMode.topicPractice,
-      sessionSize: sessionSize,
+      sessionSize: chosen,
       dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30,
       topic: selectedTopic.topic,
     );
     if (!mounted) return;
     if (questions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No questions are available for ${selectedTopic.topic}.')),
-      );
+        SnackBar(content: Text('No questions are available for ${selectedTopic.topic}.')));
       return;
     }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => QuizScreen(
-          questions: questions,
-          mode: PracticeMode.topicPractice,
-          prefs: widget.prefs,
-        ),
-      ),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizScreen(
+      questions: questions, mode: PracticeMode.topicPractice, prefs: widget.prefs)));
     if (mounted) setState(load);
   }
 
@@ -316,6 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+              const QuestionBanner(),
               const SizedBox(height: 24),
               Text('Topics', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 12),
@@ -325,7 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 for (final topic in data.topics) ...[
                   Builder(
                     builder: (context) {
-                      final color = topic.mastery >= 50 ? green : amber;
+                      final color = topic.coverage >= 50 ? green : amber;
                       return Card(
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
@@ -347,14 +381,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                       Text(topic.topic, style: const TextStyle(fontWeight: FontWeight.w800)),
                                       const SizedBox(height: 8),
                                       LinearProgressIndicator(
-                                        value: topic.mastery / 100,
+                                        value: topic.coverage / 100,
                                         minHeight: 7,
                                         color: color,
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
-                                        topic.total.toString() + ' questions',
+                                        '${topic.studied} of ${topic.total} studied',
                                         style: Theme.of(context).textTheme.bodySmall,
                                       ),
                                     ],
@@ -362,7 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(width: 14),
                                 Text(
-                                  topic.mastery.round().toString() + '%',
+                                  topic.coverage.toStringAsFixed(1) + '%',
                                   style: TextStyle(color: color, fontWeight: FontWeight.w800),
                                 ),
                                 const SizedBox(width: 6),
@@ -396,14 +430,12 @@ class _PracticeScreenState extends State<PracticeScreen> {
   List<String> topics = const [];
   String? topic;
   late int sessionSize;
-  late TextEditingController sessionSizeController;
   late bool negativeMarking;
 
   @override
   void initState() {
     super.initState();
     sessionSize = widget.prefs.getInt('session_size') ?? 15;
-    sessionSizeController = TextEditingController(text: sessionSize.toString());
     negativeMarking = widget.prefs.getBool('negative_marking') ?? false;
     AppDatabase.instance.topics().then((value) {
       if (!mounted) return;
@@ -414,61 +446,49 @@ class _PracticeScreenState extends State<PracticeScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    sessionSizeController.dispose();
-    super.dispose();
-  }
-
   Future<void> start(PracticeMode mode) async {
-    final requested = int.tryParse(sessionSizeController.text.trim());
-    if (requested == null || requested < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid number of questions (1 or more).')),
-      );
+    final selectedTopic = mode == PracticeMode.topicPractice ? topic : null;
+    final available = await AppDatabase.instance.availableForMode(mode,
+      topic: selectedTopic,
+      dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30);
+    if (!mounted) return;
+    if (available < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('No questions match this practice mode yet.')));
       return;
     }
-
-    if (mode == PracticeMode.topicPractice && topic != null) {
-      final available = await AppDatabase.instance.topicQuestionCount(topic!);
-      if (!mounted) return;
-      if (requested > available) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${topic!} has only $available questions. Enter $available or fewer.',
-            ),
-          ),
-        );
-        return;
-      }
-    }
-
-    sessionSize = requested;
+    final title = switch (mode) {
+      PracticeMode.topicPractice => selectedTopic ?? 'Topic Practice',
+      PracticeMode.dailyReview => 'Daily Review',
+      PracticeMode.wrongAnswers => 'Wrong-Answers Practice',
+      PracticeMode.bookmarked => 'Bookmarked Questions',
+      PracticeMode.mockExam => 'Timed Mock Exam',
+      PracticeMode.random50 => 'Random Practice',
+      _ => 'Practice',
+    };
+    final chosen = await showQuestionCountDialog(context,
+      title: title, available: available, preferred: sessionSize,
+      description: '$available questions available for this test');
+    if (chosen == null || !mounted) return;
+    sessionSize = chosen;
     await widget.prefs.setInt('session_size', sessionSize);
     await widget.prefs.setBool('negative_marking', negativeMarking);
     final questions = await AppDatabase.instance.buildSession(
       mode: mode,
-      sessionSize: sessionSize,
+      sessionSize: chosen,
       dailyNewLimit: widget.prefs.getInt('daily_new_limit') ?? 30,
-      topic: topic,
+      topic: selectedTopic,
     );
     if (!mounted) return;
     if (questions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No questions match this practice mode yet.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No questions match this practice mode yet.')));
       return;
     }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => QuizScreen(
-          questions: questions,
-          mode: mode,
-          prefs: widget.prefs,
-          negativeMarking: mode == PracticeMode.mockExam && negativeMarking,
-        ),
-      ),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizScreen(
+      questions: questions, mode: mode, prefs: widget.prefs,
+      negativeMarking: mode == PracticeMode.mockExam && negativeMarking)));
+    if (mounted) setState(() {});
   }
 
   @override
@@ -479,6 +499,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
         Text('Practice', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 6),
         const Text('Choose a drill. Everything below works from the local SQLite database.'),
+        const SizedBox(height: 8),
+        const QuestionBanner(),
         const SizedBox(height: 18),
         Card(
           child: Padding(
@@ -486,32 +508,10 @@ class _PracticeScreenState extends State<PracticeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Number of questions',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: sessionSizeController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    hintText: 'Example: 70',
-                    helperText: 'Enter any number. Topic Practice will use exactly this many when available.',
-                    prefixIcon: const Icon(Icons.format_list_numbered),
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  onChanged: (value) {
-                    final parsed = int.tryParse(value.trim());
-                    if (parsed != null && parsed > 0) {
-                      sessionSize = parsed;
-                    }
-                  },
-                ),
+                const Text('Choose a subject for Topic Practice',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                const Text('Tap a practice mode below to choose the number of questions.'),
                 const SizedBox(height: 14),
                 Text(
                   'Topic',
@@ -590,7 +590,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
         ModeTile(icon: Icons.error_outline, title: 'Wrong-Answers Only', subtitle: 'Questions you most recently missed', color: amber, onTap: () => start(PracticeMode.wrongAnswers)),
         ModeTile(icon: Icons.star_border, title: 'Bookmarked', subtitle: 'Only your saved questions', onTap: () => start(PracticeMode.bookmarked)),
         ModeTile(icon: Icons.timer_outlined, title: 'Mock Exam', subtitle: 'Timed at 60 seconds per question', onTap: () => start(PracticeMode.mockExam)),
-        ModeTile(icon: Icons.shuffle, title: 'Random 50', subtitle: '50 random questions from the bank', onTap: () => start(PracticeMode.random50)),
+        ModeTile(icon: Icons.shuffle, title: 'Random Practice', subtitle: 'Choose any number of random questions', onTap: () => start(PracticeMode.random50)),
+         ModeTile(icon: Icons.shield_outlined, title: 'Balanced Random B1 Exam', subtitle: 'Set any question count • equal subject allocation • saved results', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PoliceExamHub()))),
       ],
     );
   }
@@ -620,30 +621,34 @@ class _RevisionScreenState extends State<RevisionScreen> {
   }
 
   Future<void> start(String bucket) async {
-    final questions = await AppDatabase.instance.revisionQuestions(bucket, limit: 200);
-    if (!mounted) return;
-    if (questions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No questions are in this revision list yet.')),
-      );
-      return;
-    }
     final mode = switch (bucket) {
       'again' => PracticeMode.revisionAgain,
       'hard' => PracticeMode.revisionHard,
       'good' => PracticeMode.revisionGood,
       _ => PracticeMode.revisionAll,
     };
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => QuizScreen(
-          questions: questions,
-          mode: mode,
-          prefs: widget.prefs,
-        ),
-      ),
-    );
+    final eligible = await AppDatabase.instance.availableForMode(mode);
+    if (!mounted) return;
+    if (eligible < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No questions are in this revision list yet.')));
+      return;
+    }
+    final chosen = await showQuestionCountDialog(context,
+      title: bucket == 'all' ? 'All Revision Questions' : '$bucket Revision',
+      available: eligible, preferred: widget.prefs.getInt('session_size') ?? 15,
+      description: '$eligible saved questions are currently in this list');
+    if (chosen == null || !mounted) return;
+    await widget.prefs.setInt('session_size', chosen);
+    final questions = await AppDatabase.instance.revisionQuestions(bucket, limit: chosen);
+    if (!mounted) return;
+    if (questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No questions are in this revision list yet.')));
+      return;
+    }
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizScreen(
+      questions: questions, mode: mode, prefs: widget.prefs)));
     if (mounted) await refresh();
   }
 
@@ -662,6 +667,7 @@ class _RevisionScreenState extends State<RevisionScreen> {
               Text('Revision', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
               const Text('Questions stay here until you finally mark them Easy.'),
+              const QuestionBanner(),
               const SizedBox(height: 16),
               Card(
                 child: ListTile(
@@ -778,12 +784,16 @@ class _QuizScreenState extends State<QuizScreen> {
   String? selected;
   bool answered = false;
   bool bookmarked = false;
-  int correctAnswers = 0;
-  int wrongAnswers = 0;
   late DateTime started;
+  late DateTime sessionStarted;
+  final List<PracticeAttempt> recordedAttempts = [];
+  bool recordingAnswer = false;
+  bool finishing = false;
+  bool finishPending = false;
+  bool currentAnswerSaved = false;
   late List<Question> queue;
   late List<MapEntry<String, String>> options;
-  late QuestionLanguage language;
+  
   Timer? timer;
   int? secondsLeft;
 
@@ -793,12 +803,8 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void initState() {
     super.initState();
+    sessionStarted = DateTime.now();
     queue = [...widget.questions];
-    language = switch (widget.prefs.getString('question_language')) {
-      'english' => QuestionLanguage.english,
-      'both' => QuestionLanguage.both,
-      _ => QuestionLanguage.hindi,
-    };
     if (isMock) {
       secondsLeft = queue.length * 60;
       timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -824,6 +830,7 @@ class _QuizScreenState extends State<QuizScreen> {
     started = DateTime.now();
     selected = null;
     answered = false;
+    currentAnswerSaved = false;
     options = question.options.entries.toList();
     if (widget.prefs.getBool('shuffle_options') ?? false) options.shuffle();
     bookmarked = await AppDatabase.instance.isBookmarked(question.id);
@@ -831,116 +838,122 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
 
-  String questionText() {
-    final hi = question.question;
-    final en = question.questionEnglish;
-    return switch (language) {
-      QuestionLanguage.hindi => hi,
-      QuestionLanguage.english => en.isEmpty ? hi : en,
-      QuestionLanguage.both => en.isEmpty ? hi : '$hi\n\n$en',
-    };
-  }
-
-  String optionText(String key) {
-    final hi = question.options[key] ?? '';
-    final en = question.optionsEnglish[key] ?? '';
-    return switch (language) {
-      QuestionLanguage.hindi => hi,
-      QuestionLanguage.english => en.isEmpty ? hi : en,
-      QuestionLanguage.both => en.isEmpty ? hi : '$hi\n$en',
-    };
-  }
-
-  String explanationText() {
-    final hi = question.explanation;
-    final en = question.explanationEnglish;
-    final fallback = 'Correct answer: ' + question.answer;
-    return switch (language) {
-      QuestionLanguage.hindi => hi.isEmpty ? fallback : hi,
-      QuestionLanguage.english => en.isEmpty ? (hi.isEmpty ? fallback : hi) : en,
-      QuestionLanguage.both => [
-          if (hi.isNotEmpty) hi,
-          if (en.isNotEmpty) en,
-          if (hi.isEmpty && en.isEmpty) fallback,
-        ].join('\n\n'),
-    };
-  }
-
-  Future<void> setLanguage(QuestionLanguage value) async {
-    setState(() => language = value);
-    await widget.prefs.setString('question_language', value.name);
-  }
+  String questionText() => question.question;
+  String optionText(String key) => question.options[key] ?? '';
+  String explanationText() => question.explanation.isNotEmpty
+      ? question.explanation : 'Correct answer: ${question.answer}';
 
   void choose(String key) {
-    if (answered) return;
-    final correct = key == question.answer;
+    if (answered || finishing) return;
     setState(() {
       selected = key;
       answered = true;
-      if (correct) {
-        correctAnswers++;
-      } else {
-        wrongAnswers++;
-      }
     });
   }
 
   Future<void> record(ReviewRating rating) async {
-    if (!answered || selected == null) return;
-    final answeredQuestion = question;
-    await AppDatabase.instance.recordAnswer(
-      question: answeredQuestion,
-      selectedAnswer: selected!,
-      correct: selected == answeredQuestion.answer,
-      rating: rating,
-      timeMs: DateTime.now().difference(started).inMilliseconds,
-      mode: widget.mode,
-    );
-    if (!isMock) {
-      final due = await AppDatabase.instance.dueRevisionQuestions(limit: 1);
-      if (due.isNotEmpty) {
-        final dueQuestion = due.first;
-        for (var i = index + 1; i < queue.length; i++) {
-          if (queue[i].id == dueQuestion.id) {
-            queue.removeAt(i);
-            break;
-          }
-        }
-        queue.insert(index + 1, dueQuestion);
-      }
-    }
-    if (!mounted) return;
-    if (index == queue.length - 1) {
+    if (!answered || selected == null || recordingAnswer || finishing) return;
+    if (currentAnswerSaved) {
       await finish();
-    } else {
-      setState(() => index++);
-      await prepare();
+      return;
+    }
+    recordingAnswer = true;
+    final answeredQuestion = question;
+    final answer = selected!;
+    try {
+      await AppDatabase.instance.recordAnswer(
+        question: answeredQuestion,
+        selectedAnswer: answer,
+        correct: answer == answeredQuestion.answer,
+        rating: rating,
+        timeMs: DateTime.now().difference(started).inMilliseconds,
+        mode: widget.mode,
+      );
+      recordedAttempts.add(PracticeAttempt(question: answeredQuestion, answer: answer));
+      currentAnswerSaved = true;
+      recordingAnswer = false;
+      if (!mounted) return;
+      // The chosen number is exact: review scheduling affects future tests,
+      // not the current queue length.
+      if (finishPending || index == queue.length - 1) {
+        finishPending = false;
+        await finish();
+      } else {
+        setState(() => index++);
+        await prepare();
+      }
+    } catch (error) {
+      recordingAnswer = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save answer: $error')));
+      }
     }
   }
 
   Future<void> finish() async {
+    if (finishing || !mounted) return;
+    if (recordingAnswer) {
+      finishPending = true;
+      return;
+    }
+    finishing = true;
     timer?.cancel();
-    if (!mounted) return;
-    final score = correctAnswers - (widget.negativeMarking ? wrongAnswers * .25 : 0);
-    final attempted = correctAnswers + wrongAnswers;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Session complete'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Correct: ' + correctAnswers.toString()),
-            Text('Wrong: ' + wrongAnswers.toString()),
-            Text('Score: ' + score.toStringAsFixed(2) + ' / ' + attempted.toString()),
-          ],
-        ),
-        actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
+    try {
+      // If time expires after a choice was tapped but before Next,
+      // include that choice both in local progress and exam results.
+      if (answered && selected != null && !currentAnswerSaved) {
+        final current = question;
+        final answer = selected!;
+        await AppDatabase.instance.recordAnswer(
+          question: current, selectedAnswer: answer,
+          correct: answer == current.answer,
+          rating: answer == current.answer ? ReviewRating.good : ReviewRating.again,
+          timeMs: DateTime.now().difference(started).inMilliseconds,
+          mode: widget.mode,
+        );
+        recordedAttempts.add(PracticeAttempt(question: current, answer: answer));
+        currentAnswerSaved = true;
+      }
+      final saved = await PoliceExamRepository.instance.savePracticeSession(
+        plannedQuestions: widget.questions,
+        attempts: recordedAttempts,
+        started: sessionStarted,
+        durationMs: DateTime.now().difference(sessionStarted).inMilliseconds,
+        negativeMarking: widget.negativeMarking,
+      );
+      if (!mounted) return;
+      await Navigator.push(context, MaterialPageRoute(
+        builder: (_) => PoliceExamResultScreen(record: saved),
+      ));
+      if (!mounted) return;
+      Navigator.pop(context);
+      // A frequency-capped interstitial may load after the result is dismissed.
+      await AdsManager.instance.maybeShowAfterResult();
+    } catch (error) {
+      finishing = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to save test result: $error')));
+      }
+    }
+  }
+
+  Future<void> confirmEarlyFinish() async {
+    if (finishing || recordingAnswer) return;
+    final confirmed = await showDialog<bool>(
+      context: context, builder: (dialog) => AlertDialog(
+        title: const Text('Finish test now?'),
+        content: const Text('Unanswered questions will be marked as skipped. Your results and subject statistics will be saved.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Keep studying')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('Finish test')),
+        ],
       ),
     );
-    if (mounted) Navigator.pop(context);
+    if (confirmed == true && mounted) await finish();
   }
 
   Future<void> editNote() async {
@@ -977,8 +990,14 @@ class _QuizScreenState extends State<QuizScreen> {
         title: LinearProgressIndicator(value: progress, minHeight: 7, borderRadius: BorderRadius.circular(10)),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Center(child: Text((index + 1).toString() + '/' + queue.length.toString(), style: const TextStyle(fontWeight: FontWeight.w800))),
+            padding: const EdgeInsets.only(right: 8),
+            child: Center(child: Text((index + 1).toString() + '/' + queue.length.toString(),
+              style: const TextStyle(fontWeight: FontWeight.w800))),
+          ),
+          IconButton(
+            tooltip: 'Finish test and see results',
+            onPressed: finishing ? null : confirmEarlyFinish,
+            icon: const Icon(Icons.flag_outlined),
           ),
         ],
       ),
@@ -994,18 +1013,8 @@ class _QuizScreenState extends State<QuizScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SegmentedButton<QuestionLanguage>(
-              segments: const [
-                ButtonSegment(value: QuestionLanguage.hindi, label: Text('हिंदी')),
-                ButtonSegment(value: QuestionLanguage.english, label: Text('English')),
-                ButtonSegment(value: QuestionLanguage.both, label: Text('Both')),
-              ],
-              selected: {language},
-              onSelectionChanged: (value) => setLanguage(value.first),
-            ),
-          ),
+          const QuestionBanner(),
+          // Question bank contains Hindi originals; do not offer unavailable translations.
           const SizedBox(height: 14),
           Card(
             child: Padding(
@@ -1037,10 +1046,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       const SizedBox(height: 10),
                     ],
                   ],
-                  if (question.source.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(question.source, style: Theme.of(context).textTheme.bodySmall),
-                  ],
+
                 ],
               ),
             ),
@@ -1085,17 +1091,35 @@ class _QuizScreenState extends State<QuizScreen> {
                 label: const Text('Next'),
               )
             else
-              Row(
-                children: [
-                  Expanded(child: OutlinedButton(onPressed: () => record(ReviewRating.again), child: const Text('Again'))),
-                  const SizedBox(width: 6),
-                  Expanded(child: OutlinedButton(onPressed: () => record(ReviewRating.hard), child: const Text('Hard'))),
-                  const SizedBox(width: 6),
-                  Expanded(child: FilledButton.tonal(onPressed: () => record(ReviewRating.good), child: const Text('Good'))),
-                  const SizedBox(width: 6),
-                  Expanded(child: FilledButton(onPressed: () => record(ReviewRating.easy), child: const Text('Easy'))),
-                ],
-              ),
+              Column(children: [
+                Row(children: [
+                  Expanded(child: SizedBox(height: 50, child: OutlinedButton.icon(
+                    onPressed: () => record(ReviewRating.again),
+                    icon: const Icon(Icons.replay_rounded, size: 19),
+                    label: const Text('Again', maxLines: 1),
+                  ))),
+                  const SizedBox(width: 12),
+                  Expanded(child: SizedBox(height: 50, child: OutlinedButton.icon(
+                    onPressed: () => record(ReviewRating.hard),
+                    icon: const Icon(Icons.fitness_center_rounded, size: 19),
+                    label: const Text('Hard', maxLines: 1),
+                  ))),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: SizedBox(height: 50, child: FilledButton.tonalIcon(
+                    onPressed: () => record(ReviewRating.good),
+                    icon: const Icon(Icons.check_circle_outline_rounded, size: 19),
+                    label: const Text('Good', maxLines: 1),
+                  ))),
+                  const SizedBox(width: 12),
+                  Expanded(child: SizedBox(height: 50, child: FilledButton.icon(
+                    onPressed: () => record(ReviewRating.easy),
+                    icon: const Icon(Icons.bolt_rounded, size: 19),
+                    label: const Text('Easy', maxLines: 1),
+                  ))),
+                ]),
+              ]),
           ],
         ],
       ),
@@ -1115,7 +1139,8 @@ class StatsScreen extends StatelessWidget {
         final stats = snapshot.data!;
         final achievements = achievementList(stats);
         final unlocked = achievements.where((item) => item.$2).length;
-        final weak = [...stats.topics]..sort((a, b) => a.mastery.compareTo(b.mastery));
+        final weak = stats.topics.where((t) => t.attempted >= 5).toList()
+          ..sort((a, b) => a.mastery.compareTo(b.mastery));
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
@@ -1189,7 +1214,9 @@ class StatsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
-            Text('Weakest topics', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            Text('Weakest practiced subjects', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            if (weak.isEmpty) const Padding(padding: EdgeInsets.only(top: 8), child:
+              Text('Answer at least five questions in a subject to see performance here.')),
             for (final topic in weak.take(5))
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -1322,6 +1349,7 @@ class QuestionDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
         children: [
           Pill(icon: Icons.sell_outlined, text: question.topic),
+          const QuestionBanner(),
           const SizedBox(height: 12),
           Text(question.question, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, height: 1.5)),
           if (question.questionEnglish.isNotEmpty) ...[
@@ -1386,19 +1414,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool reminder;
   late bool shuffle;
   late double newLimit;
-  late QuestionLanguage questionLanguage;
-
+  
   @override
   void initState() {
     super.initState();
     reminder = widget.prefs.getBool('daily_reminder') ?? true;
     shuffle = widget.prefs.getBool('shuffle_options') ?? false;
     newLimit = (widget.prefs.getInt('daily_new_limit') ?? 30).toDouble();
-    questionLanguage = switch (widget.prefs.getString('question_language')) {
-      'english' => QuestionLanguage.english,
-      'both' => QuestionLanguage.both,
-      _ => QuestionLanguage.hindi,
-    };
   }
 
   Future<void> importFiles() async {
@@ -1502,24 +1524,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Card(
           child: Column(
             children: [
-              ListTile(
-                title: const Text('Question language'),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: SegmentedButton<QuestionLanguage>(
-                    segments: const [
-                      ButtonSegment(value: QuestionLanguage.hindi, label: Text('हिंदी')),
-                      ButtonSegment(value: QuestionLanguage.english, label: Text('English')),
-                      ButtonSegment(value: QuestionLanguage.both, label: Text('Both')),
-                    ],
-                    selected: {questionLanguage},
-                    onSelectionChanged: (value) async {
-                      setState(() => questionLanguage = value.first);
-                      await widget.prefs.setString('question_language', value.first.name);
-                    },
-                  ),
-                ),
-              ),
               SwitchListTile(
                 title: const Text('Shuffle option order'),
                 subtitle: const Text('Original question number stays visible'),
@@ -1543,6 +1547,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 18),
+        const SectionTitle('Advertising & privacy'),
+        Card(child: Column(children: [
+          const ListTile(
+            leading: Icon(Icons.ad_units_outlined),
+            title: Text('Advertisements'),
+            subtitle: Text('Ads support this free study app. Study works offline, and ads are only requested when consent permits.'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.policy_outlined),
+            title: const Text('Privacy policy'),
+            subtitle: const Text('What this app and Google AdMob may process'),
+            onTap: () async {
+              final policy = await rootBundle.loadString('assets/privacy_policy.txt');
+              if (!context.mounted) return;
+              await showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                showDragHandle: true,
+                builder: (sheet) => SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
+                    child: SizedBox(height: MediaQuery.sizeOf(sheet).height * .75,
+                      child: SingleChildScrollView(child: SelectableText(policy))),
+                  ),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('Manage advertising privacy'),
+            subtitle: const Text('Review your choices where available'),
+            onTap: () async {
+              if (await AdsManager.instance.privacyOptionsRequired()) {
+                await AdsManager.instance.openPrivacyOptions();
+              } else if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Additional privacy choices are not required for this device.'),
+                ));
+              }
+            },
+          ),
+        ])),
         const SizedBox(height: 18),
         const SectionTitle('Notifications'),
         Card(
@@ -1959,7 +2007,7 @@ List<(String, bool, IconData)> achievementList(StatsSnapshot s) {
     ('95% Accuracy', r >= 200 && accuracy >= 95, Icons.verified),
     ('Fast 20', r >= 20 && s.averageTimeMs > 0 && s.averageTimeMs <= 20000, Icons.speed),
     ('All Topics', s.topics.length >= 4 && s.topics.every((t) => t.attempted > 0), Icons.category_outlined),
-    ('Mastery 80', s.topics.isNotEmpty && s.topics.any((t) => t.mastery >= 80), Icons.school_outlined),
+    ('Mastery 80', s.topics.isNotEmpty && s.topics.any((t) => t.studied >= 10 && t.mastery >= 80), Icons.school_outlined),
   ];
 }
 

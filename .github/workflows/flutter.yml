@@ -2,7 +2,7 @@ name: Flutter Android CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/police-b1-balanced-exams, feature/playstore-admob-release, feature/fix-ui-progress-hindi-add-6496, feature/fix-revision-live-counts, feature/test-count-dialog-results-ads, feature/police-b1-final-optional-donations]
   pull_request:
 
 jobs:
@@ -18,9 +18,20 @@ jobs:
         run: |
           flutter create --empty --platforms=android --project-name b1_test_app .
           rm -f test/widget_test.dart
+      - name: Set app name and generate branded launcher icon
+        run: |
+          python3 -m pip install --user Pillow
+          python3 tools/generate_icon.py
+          python3 tools/configure_android.py
       - run: flutter pub get
+      - name: Apply launcher icon
+        run: dart run flutter_launcher_icons
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
+      - name: Validate bundled B1 question bank
+        run: python3 tools/validate_preloaded.py
+      - name: Validate added reference questions
+        run: python3 tools/validate_reference.py
       - run: flutter build apk --debug
       - uses: actions/upload-artifact@v4
         with:

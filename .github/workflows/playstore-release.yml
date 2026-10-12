@@ -1,0 +1,68 @@
+name: Police B1 Test — Signed Google Play AAB
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/playstore-admob-release, feature/fix-ui-progress-hindi-add-6496, feature/test-count-dialog-results-ads]
+
+jobs:
+  play_bundle:
+    if: ${{ vars.ADMOB_APP_ID != '' && vars.ADMOB_BANNER_ID != '' && vars.ADMOB_INTERSTITIAL_ID != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
+      ADMOB_BANNER_ID: ${{ vars.ADMOB_BANNER_ID }}
+      ADMOB_INTERSTITIAL_ID: ${{ vars.ADMOB_INTERSTITIAL_ID }}
+      KEYSTORE_FILE: /tmp/police-b1-upload.jks
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android scaffold
+        run: |
+          flutter create --empty --platforms=android --project-name b1_test_app .
+          rm -f test/widget_test.dart
+      - name: Decode upload signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "Configure KEYSTORE_BASE64 in repository Actions secrets."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          chmod 600 "$KEYSTORE_FILE"
+      - name: Configure release branding and AdMob
+        run: |
+          python3 -m pip install --user Pillow
+          python3 tools/generate_icon.py
+          python3 tools/configure_android.py --release
+      - name: Install packages
+        run: flutter pub get
+      - name: Apply launcher icon
+        run: dart run flutter_launcher_icons
+      - name: Analyze source code
+        run: flutter analyze --no-fatal-infos
+      - name: Run tests
+        run: flutter test
+      - name: Validate bundled question bank
+        run: python3 tools/validate_preloaded.py
+      - name: Build signed Google Play bundle
+        run: |
+          flutter build appbundle --release \
+            --dart-define=ADS_ENABLED=true \
+            --dart-define="ADMOB_BANNER_ID=$ADMOB_BANNER_ID" \
+            --dart-define="ADMOB_INTERSTITIAL_ID=$ADMOB_INTERSTITIAL_ID"
+      - name: Publish AAB to run artifacts (manual Play Console upload)
+        uses: actions/upload-artifact@v4
+        with:
+          name: police-b1-test-google-play-signed-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
