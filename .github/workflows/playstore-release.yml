@@ -3,7 +3,7 @@ name: Police B1 Test — Signed Google Play AAB
 on:
   workflow_dispatch:
   push:
-    branches: [feature/playstore-admob-release, feature/fix-ui-progress-hindi-add-6496]
+    branches: [feature/playstore-admob-release, feature/fix-ui-progress-hindi-add-6496, feature/optional-donations-upi-binance-contact]
 
 jobs:
   play_bundle:
