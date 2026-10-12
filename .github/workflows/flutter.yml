@@ -2,7 +2,7 @@ name: Flutter Android CI
 
 on:
   push:
-    branches: [main, feature/police-b1-balanced-exams, feature/playstore-admob-release, feature/fix-ui-progress-hindi-add-6496, feature/fix-revision-live-counts]
+    branches: [main, feature/police-b1-balanced-exams, feature/playstore-admob-release, feature/fix-ui-progress-hindi-add-6496, feature/fix-revision-live-counts, feature/optional-donations-upi-binance-contact]
   pull_request:
 
 jobs:
