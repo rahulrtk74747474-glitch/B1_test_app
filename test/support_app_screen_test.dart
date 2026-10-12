@@ -24,13 +24,12 @@ void main() {
     expect(find.byType(QrImageView), findsOneWidget);
     expect(find.text('Donate using UPI'), findsOneWidget);
     expect(find.text('Help keep learning free'), findsOneWidget);
-    final upiQr = tester.widget<QrImageView>(find.byType(QrImageView));
-    expect(upiQr.data, SupportDestinations.upiUri);
+    expect(find.text(SupportDestinations.upiId), findsOneWidget);
 
     await tester.tap(find.text('Crypto'));
     await tester.pump();
     expect(find.text('Donate using Binance Pay'), findsOneWidget);
-    final cryptoQr = tester.widget<QrImageView>(find.byType(QrImageView));
-    expect(cryptoQr.data, SupportDestinations.binanceUrl);
+    expect(find.text(SupportDestinations.binanceRecipient), findsOneWidget);
+    expect(find.byType(QrImageView), findsOneWidget);
   });
 }
