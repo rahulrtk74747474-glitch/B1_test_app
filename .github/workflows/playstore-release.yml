@@ -2,19 +2,16 @@ name: Police B1 Test — Signed Google Play AAB
 
 on:
   workflow_dispatch:
-  push:
-    branches: [feature/playstore-admob-release, feature/fix-ui-progress-hindi-add-6496, feature/test-count-dialog-results-ads]
 
 jobs:
   play_bundle:
-    if: ${{ vars.ADMOB_APP_ID != '' && vars.ADMOB_BANNER_ID != '' && vars.ADMOB_INTERSTITIAL_ID != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     env:
-      ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
-      ADMOB_BANNER_ID: ${{ vars.ADMOB_BANNER_ID }}
-      ADMOB_INTERSTITIAL_ID: ${{ vars.ADMOB_INTERSTITIAL_ID }}
+      ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID || 'ca-app-pub-7581864621750208~9312525951' }}
+      ADMOB_BANNER_ID: ${{ vars.ADMOB_BANNER_ID || 'ca-app-pub-7581864621750208/5675613403' }}
+      ADMOB_INTERSTITIAL_ID: ${{ vars.ADMOB_INTERSTITIAL_ID || 'ca-app-pub-7581864621750208/5720765308' }}
       KEYSTORE_FILE: /tmp/police-b1-upload.jks
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
