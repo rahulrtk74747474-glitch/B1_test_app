@@ -1,0 +1,57 @@
+name: Downloadable B1 Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-test-apk.yml'
+      - 'lib/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'tools/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: b1-latest-debug-apk
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create Android platform
+        run: |
+          flutter create --empty --platforms=android --project-name b1_test_app .
+          rm -f test/widget_test.dart
+      - name: Configure application
+        run: |
+          python3 -m pip install --user Pillow
+          python3 tools/generate_icon.py
+          python3 tools/configure_android.py
+      - name: Resolve packages
+        run: flutter pub get
+      - name: Apply launcher icon
+        run: dart run flutter_launcher_icons
+      - name: Build test APK
+        run: flutter build apk --debug
+      - name: Name APK
+        run: cp build/app/outputs/flutter-apk/app-debug.apk Police-B1-Test.apk
+      - name: Create or update stable public download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view latest-test-apk >/dev/null 2>&1; then
+            gh release upload latest-test-apk Police-B1-Test.apk --clobber
+          else
+            gh release create latest-test-apk Police-B1-Test.apk --title "Police B1 Test - latest Android test APK" --notes "Installable Android debug APK built from main. Includes Google test advertisements (not production ads). For testing only." --target "${GITHUB_SHA}" --latest
+          fi
