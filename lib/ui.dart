@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'database.dart';
 import 'ads.dart';
 import 'test_count_dialog.dart';
+import 'support_police_b1_screen.dart';
 import 'police_exam_repository.dart';
 import 'models.dart';
 import 'police_exam_ui.dart';
@@ -159,6 +160,19 @@ class MoreScreen extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Card(
+          child: ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.volunteer_activism_outlined)),
+            title: const Text('Support our free app', style: TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: const Text('Optional UPI or Binance contribution • no extra features required'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SupportPoliceB1Screen()),
+            ),
           ),
         ),
         const SizedBox(height: 18),
