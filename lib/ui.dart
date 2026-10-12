@@ -11,6 +11,7 @@ import 'database.dart';
 import 'ads.dart';
 import 'models.dart';
 import 'police_exam_ui.dart';
+import 'support_app_screen.dart';
 
 const green = Color(0xFF22A06B);
 const amber = Color(0xFFF59E0B);
@@ -138,6 +139,15 @@ class MoreScreen extends StatelessWidget {
                 subtitle: const Text('Past tests, improvement and weak subjects'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PoliceExamHub())),
+              ),
+              const Divider(height: 1, indent: 72),
+              ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.favorite_border_rounded)),
+                title: const Text('Support the app', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Optional UPI or crypto donation · iOS contact'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SupportAppScreen())),
               ),
               const Divider(height: 1, indent: 72),
               ListTile(
